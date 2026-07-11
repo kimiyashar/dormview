@@ -24,9 +24,13 @@ everyone else in that same room type reuses it.
 
 ## Phased rollout (Will's stated plan, in order)
 
-1. **E-Tower Traditional Double** (DONE). Ship it, share it with the floor.
-2. **All E-Tower room types**: singles, triples, doubles, the non-traditional style. This
-   is the next design task: the UI + data to let anyone in E-Tower pick their room type.
+1. **E-Tower Traditional Double** (DONE). Ship it, share it with the floor. Shared in the
+   Morewood E Tower group chat 2026-07-11; well received.
+2. **All E-Tower room types** (DONE 2026-07-11): Traditional Single and Semi-Suite Triple
+   added alongside the Double. Their dimensions are scaled off the official CMU floor plan
+   (CMU publishes no numbers), labeled "(size est.)" in the picker; residents can correct
+   them under Room size. Remaining polish: get a real resident measurement for the single
+   and the triple to drop the "est." label.
 3. **All CMU dorms**: add more buildings beyond E-Tower.
 4. **Every college**: add more schools.
 

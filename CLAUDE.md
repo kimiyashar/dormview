@@ -39,6 +39,13 @@ The whole app is ONE self-contained HTML file. No build step, no framework, no b
 
 Done and tested:
 - Accurate E-Tower Traditional Double room (see dimensions in section 6).
+- All three E-Tower room types (2026-07-11): Traditional Double (measured), plus
+  Traditional Single and Semi-Suite Triple with dimensions scaled off the official CMU
+  floor plan PDF (no numbers are published, so their names carry "(size est.)" and rooms
+  are correctable under Room size). Each room carries a `beds` count in SCHOOLS; the
+  single gets layoutSingle, the triple gets layoutTriple (bunk pair + free bed whose
+  height follows the Standard/Raised presets). Saves remember roomKey + beds + per-bed
+  height (userData.bedTop / item `bt`), so reload restores the right room.
 - Four layout presets: Standard (beds ~20"), Beds raised (~36" lofted), Bunked, Open.
 - Desks default: long 42" back edge against the foot of the bed, open side + chair facing
   the door/closets, chair pushed in.

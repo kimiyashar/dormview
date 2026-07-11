@@ -689,6 +689,7 @@ var BED_TOP=20;   // current default mattress height: 20" (standard) or 36" (rai
 function makeBed(side, matTop){            // Twin XL 39 x 80. matTop = mattress-top height off floor
   var g=new THREE.Group();
   matTop = matTop || BED_TOP;
+  g.userData.bedTop = matTop;              // remembered per bed so save/load keeps mixed heights
   var w=39,l=80, matH=6, deck=matTop-matH;   // deck (frame) sits matH below the mattress top
   var comf = side==='L'? MAT.bedL : MAT.bedR;
   var alt  = side==='L'? MAT.bedR : MAT.bedL;
@@ -1019,6 +1020,7 @@ function makeClutter(){          // lived-in dorm props, each individually delet
 var items = [];
 function kindFromId(id){
   if(/^bedL/.test(id)) return 'bed_L'; if(/^bedR/.test(id)) return 'bed_R';
+  if(/^bedM/.test(id)) return 'bed_L';   // triple's bunk-top / third bed
   if(/^dresser/.test(id)) return 'dresser'; if(/^desk/.test(id)) return 'desk'; if(/^chair/.test(id)) return 'chair';
   return null;
 }
@@ -1067,6 +1069,32 @@ function layoutDeskFoot(bedTop){   // shared arrangement; only the bed height di
 }
 function layoutStandard(){ layoutDeskFoot(20); }   // beds on the floor (~20" mattress top)
 function layoutRaised(){ layoutDeskFoot(36); }      // beds lofted (~36" mattress top, open storage under)
+function layoutSingle(bedTop){   // one resident: bed left wall, desk at its foot, dresser back-right
+  BED_TOP=bedTop;
+  var W=ROOM.w, D=ROOM.d;
+  addItem('bedL', makeBed('L', bedTop), -W/2+20.5, D/2-46, Math.PI);
+  var footZ=(D/2-46)-40;
+  addItem('deskL', makeDesk(), -W/2+21, footZ-12, Math.PI);
+  addItem('chairL', makeChair(), -W/2+21, footZ-31, 0);
+  addItem('dresserL', makeDresser(),  W/2-9, -D/2+15, -Math.PI/2);
+}
+function layoutTriple(freeBedTop){   // bunked pair on the left, third bed on the right
+  BED_TOP=freeBedTop;
+  var W=ROOM.w, D=ROOM.d, lx=-W/2+20.5;
+  addItem('bedL', makeBed('L', 20), lx, D/2-46, Math.PI);
+  var tb=addItem('bedM', makeBed('L', 20), lx, D/2-46, Math.PI); tb.position.y=46;
+  addItem('bedR', makeBed('R', freeBedTop), W/2-20.5, D/2-46, Math.PI);
+  addItem('dresserL', makeDresser(), -W/2+9, -D/2+15, Math.PI/2);
+  addItem('dresserR', makeDresser(),  W/2-9, -D/2+15, -Math.PI/2);
+  addItem('dresserM', makeDresser(),  W/2-9, -D/2+50, -Math.PI/2);
+  var footZ=(D/2-46)-40;
+  addItem('deskR', makeDesk(), W/2-21, footZ-12, Math.PI);
+  addItem('chairR', makeChair(), W/2-21, footZ-31, 0);
+  addItem('deskL', makeDesk(), -W/2+12, -D/2+38, -Math.PI/2);
+  addItem('chairL', makeChair(), -W/2+27, -D/2+38, Math.PI/2);
+  addItem('deskM', makeDesk(), -30, D/2-27, 0);
+  addItem('chairM', makeChair(), -30, D/2-46, Math.PI);
+}
 function layoutBunk(){            // both beds bunked on the left, right wall freed
   BED_TOP=20;
   var W=ROOM.w, D=ROOM.d, lx=-W/2+20.5;
@@ -1093,9 +1121,14 @@ function layoutOpen(){           // dressers back corners, beds mid-wall, desks 
 }
 
 var currentLayout='standard';
+var ROOM_BEDS=2;      // beds in the current room type (1 single, 2 double, 3 triple)
 function applyLayout(name){
   currentLayout=name; deselect(); clearItems();
-  if(name==='raised') layoutRaised();
+  // singles and triples have their own arrangements; Standard/Raised drive the
+  // free bed height, Bunked/Open fall back to the base arrangement for them
+  if(ROOM_BEDS===1) layoutSingle(name==='raised'?36:20);
+  else if(ROOM_BEDS===3) layoutTriple(name==='raised'?36:20);
+  else if(name==='raised') layoutRaised();
   else if(name==='bunk') layoutBunk();
   else if(name==='open') layoutOpen();
   else layoutStandard();
@@ -1837,12 +1870,13 @@ function applyItemColors(o, cols){ var t=o.userData.recolorTargets; if(!t||!cols
   for(var i=0;i<t.length && i<cols.length;i++){ var tg=t[i];
     tg.mats.forEach(function(m){ if(tg.kind==='wall'||tg.kind==='floor') m.map=null; m.color.set(cols[i]); m.needsUpdate=true; }); } }
 function serialize(){
-  return { v:2, room:{w:ROOM.w,d:ROOM.d,h:ROOM.h}, layout:currentLayout, bedTop:BED_TOP,
+  return { v:3, room:{w:ROOM.w,d:ROOM.d,h:ROOM.h}, layout:currentLayout, bedTop:BED_TOP,
+    roomKey:CURRENT_ROOM_KEY, beds:ROOM_BEDS,
     colors:{wall:val('c_wall'),wallStyle:val('wallStyle'),bedL:val('c_bedL'),bedR:val('c_bedR'),
             curtain:val('c_curtain'),rug:val('c_rug'),floor:val('floorType')},
     items:items.map(function(o){ var u=o.userData; return {
       kind:u.kind, id:u.id, x:o.position.x, y:o.position.y, z:o.position.z, ry:o.rotation.y,
-      pw:u.pw, ph:u.ph, pd:u.pd, wall:u.wall, img:u.imgURL||null, colors:itemColors(o) }; })
+      pw:u.pw, ph:u.ph, pd:u.pd, wall:u.wall, bt:u.bedTop, img:u.imgURL||null, colors:itemColors(o) }; })
   };
 }
 var LS_KEY='dormview_etower_double_v2';
@@ -1869,6 +1903,8 @@ function loadState(s){
     if(document.getElementById('rD'))document.getElementById('rD').value=ROOM.d;
     if(document.getElementById('rH'))document.getElementById('rH').value=ROOM.h; }
   if(typeof s.bedTop==='number') BED_TOP=s.bedTop;
+  if(s.roomKey) CURRENT_ROOM_KEY=s.roomKey;
+  if(typeof s.beds==='number') ROOM_BEDS=s.beds;
   currentLayout=s.layout||currentLayout;
   if(s.colors){
     if(s.colors.wall && document.getElementById('c_wall')) document.getElementById('c_wall').value=s.colors.wall;
@@ -1884,7 +1920,10 @@ function loadState(s){
   clearItems();
   if(s.items){ s.items.forEach(function(it){
     if(!it.kind) return;
-    var o=build(it.kind); if(!o) return;
+    // beds bake their height into geometry at build time; honor the saved per-bed height
+    var prevBT=BED_TOP; if(typeof it.bt==='number') BED_TOP=it.bt;
+    var o=build(it.kind); BED_TOP=prevBT;
+    if(!o) return;
     o.userData.id = it.id || ('inv_'+it.kind+'_'+Math.random().toString(36).slice(2));
     if(it.wall!==undefined) o.userData.wall=it.wall;
     scene.add(o); items.push(o);
@@ -1912,6 +1951,23 @@ function resize(){
 window.addEventListener('resize',resize);
 function render(){ requestAnimationFrame(render); if(selBox) selBox.update(); renderer.render(scene,camera); }
 
+/* ====================  ROOM REGISTRY  ================================ */
+/* Defined BEFORE boot so the autosave restore below can bring back the room
+   key the user was in. Add a school by dropping another entry in here. Each
+   room carries its dimensions, bed count, and starting layout.
+   Single and triple dims are scaled off the official CMU floor plan PDF
+   (no numbers are published); residents can correct them under Room size. */
+var SCHOOLS = {
+  cmu:{ name:'Carnegie Mellon University', buildings:{
+    etower:{ name:'Morewood Gardens (E-Tower)', rooms:{
+      trad_double:{ name:'Traditional Double', room:{w:151.5,d:166,h:96}, layout:'standard', beds:2 },
+      trad_single:{ name:'Traditional Single (size est.)', room:{w:132,d:130,h:96}, layout:'standard', beds:1 },
+      semi_triple:{ name:'Semi-Suite Triple (size est.)', room:{w:186,d:150,h:96}, layout:'standard', beds:3 }
+    }}
+  }}
+};
+var CURRENT_ROOM_KEY='cmu/etower/trad_double';   // the app boots straight into this room
+
 /* ====================  BOOT  ========================================= */
 buildRoom();
 applyLayout('standard');
@@ -1930,16 +1986,8 @@ document.addEventListener('visibilitychange',function(){ if(document.visibilityS
 window.addEventListener('pagehide',function(){ autosave(); });
 
 /* ====================  LANDING: university -> building -> room type  ====== */
-/* Add a school by dropping another entry in here. Each room may carry its own
-   room dimensions + starting layout; the planner rebuilds to match on Enter.  */
-var SCHOOLS = {
-  cmu:{ name:'Carnegie Mellon University', buildings:{
-    etower:{ name:'Morewood Gardens (E-Tower)', rooms:{
-      trad_double:{ name:'Traditional Double', room:{w:151.5,d:166,h:96}, layout:'standard' }
-    }}
-  }}
-};
-var CURRENT_ROOM_KEY='cmu/etower/trad_double';   // the app boots straight into this room
+/* The SCHOOLS registry lives above the BOOT section (it must exist before the
+   autosave restore runs). This wires the picker UI to it. */
 function applyRoomSelection(uKey,bKey,rKey,cfg){
   var key=uKey+'/'+bKey+'/'+rKey, sameRoom=(CURRENT_ROOM_KEY===key);
   CURRENT_ROOM_KEY=key;
@@ -1947,6 +1995,7 @@ function applyRoomSelection(uKey,bKey,rKey,cfg){
   var t=document.getElementById('tbTitle'); if(t&&t.childNodes&&t.childNodes.length) t.childNodes[0].nodeValue=R.name+' ';
   var c=document.getElementById('tbCrumb'); if(c) c.innerHTML=S.name+' · '+B.name;
   if(sameRoom) return;                       // keep the user's current / restored arrangement
+  ROOM_BEDS=cfg.beds||2;
   if(cfg.room){ ROOM.w=cfg.room.w; ROOM.d=cfg.room.d; ROOM.h=cfg.room.h;
     if(document.getElementById('rW'))document.getElementById('rW').value=ROOM.w;
     if(document.getElementById('rD'))document.getElementById('rD').value=ROOM.d;
@@ -1988,10 +2037,13 @@ function applyRoomSelection(uKey,bKey,rKey,cfg){
   if(c2 && SCHOOLS[dk[0]]) c2.innerHTML=SCHOOLS[dk[0]].name+' · '+SCHOOLS[dk[0]].buildings[dk[1]].name;
   // returning visitor with restored progress: skip the picker and go straight to the room.
   // "Change room" in the top bar still reopens it.
-  if(RESTORED){
+  if(RESTORED && SCHOOLS[dk[0]] && SCHOOLS[dk[0]].buildings[dk[1]] &&
+     SCHOOLS[dk[0]].buildings[dk[1]].rooms[dk[2]]){
     uni.value=dk[0]; uni.dispatchEvent(new Event('change'));
     bldg.value=dk[1]; bldg.dispatchEvent(new Event('change'));
     room.value=dk[2]; refreshEnter();
+    // sameRoom is true here, so this only refreshes the title and breadcrumb
+    applyRoomSelection(dk[0],dk[1],dk[2], SCHOOLS[dk[0]].buildings[dk[1]].rooms[dk[2]]);
     land.classList.add('gone');
   }
 })();
