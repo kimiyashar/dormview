@@ -1419,8 +1419,10 @@ function deselect(){ if(selBox){ scene.remove(selBox); selBox=null; } selected=n
 function refreshSelBox(){ if(selBox) selBox.update(); positionHandles(); }
 
 /* ====================  INTERACTIVE RESIZE HANDLES  ==================== */
-/* Grab a face handle to stretch one dimension, or the corner handle to scale
-   the whole item proportionally. Works alongside the W/H/D number boxes. */
+/* Handles sit ON the yellow selection box: one stretch handle at the midpoint
+   of each of the four top edges (pull any side to stretch that dimension),
+   a proportional-scale handle at each of the four top corners, and a height
+   handle at the top center. Works alongside the W/H/D number boxes. */
 var handleGroup=new THREE.Group(); scene.add(handleGroup);
 var handles=[]; var resizing=null; var rz={};
 function clearHandles(){ while(handleGroup.children.length) handleGroup.remove(handleGroup.children[0]); handles=[]; }
@@ -1436,7 +1438,9 @@ function makeArrow(color){
 function buildHandles(){
   clearHandles();
   if(!selected || !selected.userData.resizable || selected.userData.wall) return;   // posters resize via the boxes
-  [{m:'x',c:0xff8a3d},{m:'z',c:0xff8a3d},{m:'y',c:0xff8a3d},{m:'corner',c:0x39c0d3}].forEach(function(d){
+  [{m:'x+',c:0xff8a3d},{m:'x-',c:0xff8a3d},{m:'z+',c:0xff8a3d},{m:'z-',c:0xff8a3d},
+   {m:'y',c:0xff8a3d},
+   {m:'c++',c:0x39c0d3},{m:'c+-',c:0x39c0d3},{m:'c-+',c:0x39c0d3},{m:'c--',c:0x39c0d3}].forEach(function(d){
     // invisible-but-pickable proxy (so hovering a side is detectable)
     var proxy=new THREE.Mesh(new THREE.BoxGeometry(8,8,8),
       new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthTest:false, depthWrite:false}));
@@ -1452,17 +1456,27 @@ function localExtents(o){ var u=o.userData;    // unscaled local half-extents + 
 }
 function handleDir(mode, q, e){       // world direction the arrow / drag axis points along
   if(mode==='y') return new THREE.Vector3(0,1,0);
-  if(mode==='z') return new THREE.Vector3(0,0,1).applyQuaternion(q).normalize();
-  if(mode==='corner') return new THREE.Vector3(e.hx,0,e.hz).applyQuaternion(q).normalize();   // 45° diagonal
-  return new THREE.Vector3(1,0,0).applyQuaternion(q).normalize();
+  var v;
+  if(mode==='x+')      v=new THREE.Vector3( 1,0,0);
+  else if(mode==='x-') v=new THREE.Vector3(-1,0,0);
+  else if(mode==='z+') v=new THREE.Vector3(0,0, 1);
+  else if(mode==='z-') v=new THREE.Vector3(0,0,-1);
+  else {  // corner 'c<sx><sz>': diagonal pointing out of that corner
+    var sx=(mode.charAt(1)==='+')?1:-1, sz=(mode.charAt(2)==='+')?1:-1;
+    v=new THREE.Vector3(sx*e.hx,0,sz*e.hz);
+  }
+  return v.applyQuaternion(q).normalize();
 }
 function positionHandles(){
   if(!selected || !handles.length) return;
   selected.updateMatrixWorld(true);
   var e=localExtents(selected);
   var q=new THREE.Quaternion(); selected.getWorldQuaternion(q);
-  var pts={ x:new THREE.Vector3(e.hx,e.ph*0.5,0), z:new THREE.Vector3(0,e.ph*0.5,e.hz),
-            y:new THREE.Vector3(0,e.ph,0), corner:new THREE.Vector3(e.hx,e.ph,e.hz) };
+  var pts={ 'x+':new THREE.Vector3( e.hx,e.ph,0), 'x-':new THREE.Vector3(-e.hx,e.ph,0),
+            'z+':new THREE.Vector3(0,e.ph, e.hz), 'z-':new THREE.Vector3(0,e.ph,-e.hz),
+            y:new THREE.Vector3(0,e.ph,0),
+            'c++':new THREE.Vector3( e.hx,e.ph, e.hz), 'c+-':new THREE.Vector3( e.hx,e.ph,-e.hz),
+            'c-+':new THREE.Vector3(-e.hx,e.ph, e.hz), 'c--':new THREE.Vector3(-e.hx,e.ph,-e.hz) };
   var xAxis=new THREE.Vector3(1,0,0);
   handles.forEach(function(h){ var m=h.userData.hmode;
     var wp=pts[m].clone().applyMatrix4(selected.matrixWorld); h.position.copy(wp);
@@ -1489,10 +1503,10 @@ function doResize(ev){
   updateMouse(ev); ray.setFromCamera(mouse,camera);
   var hit=new THREE.Vector3(); if(!ray.ray.intersectPlane(rz.plane,hit)) return;
   var d=hit.clone().sub(rz.startHit).dot(rz.axis);
-  if(resizing==='x') resizePoster(selected, rz.startPw+2*d, selected.userData.ph, selected.userData.pd);
-  else if(resizing==='z') resizePoster(selected, selected.userData.pw, selected.userData.ph, rz.startPd+2*d);
+  if(resizing==='x+'||resizing==='x-') resizePoster(selected, rz.startPw+2*d, selected.userData.ph, selected.userData.pd);
+  else if(resizing==='z+'||resizing==='z-') resizePoster(selected, selected.userData.pw, selected.userData.ph, rz.startPd+2*d);
   else if(resizing==='y') resizePoster(selected, selected.userData.pw, rz.startPh+d, selected.userData.pd);
-  else if(resizing==='corner'){ var f=Math.max(0.15,(rz.startPw+2*d)/rz.startPw);
+  else if(resizing.charAt(0)==='c'){ var f=Math.max(0.15,(rz.startPw+2*d)/rz.startPw);
     resizePoster(selected, rz.startPw*f, rz.startPh*f, rz.startPd*f); }
   var pw=document.getElementById('pW'),ph=document.getElementById('pH'),pd=document.getElementById('pD');
   if(pw)pw.value=Math.round(selected.userData.pw); if(ph)ph.value=Math.round(selected.userData.ph);
@@ -1643,7 +1657,7 @@ canvas.addEventListener('pointermove',function(ev){
     updateMouse(ev); ray.setFromCamera(mouse,camera);
     var hh=ray.intersectObjects(handles,false);
     if(hh.length){ var hm=hh[0].object.userData.hmode; setArrowHover(hm);
-      canvas.style.cursor = hm==='y'?'ns-resize':(hm==='corner'?'nwse-resize':'ew-resize');
+      canvas.style.cursor = hm==='y'?'ns-resize':(hm.charAt(0)==='c'?'nwse-resize':'ew-resize');
       hideTip(); return; }
     setArrowHover(null);
   }
