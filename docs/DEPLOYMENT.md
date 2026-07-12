@@ -7,6 +7,9 @@ production). Deployed with the local Vercel CLI on Kimi's Mac, which is logged i
 `26kimiy` (binary at `~/.npm-global/bin/vercel`). The Cowork Vercel connector still cannot
 reach that team; use the CLI.
 
+Source is on GitHub at https://github.com/26kimiy/dormview (private), pushed 2026-07-12 with
+the `gh` CLI (authenticated as 26kimiy). v2 is the repo root; v1 is the `v1/` folder.
+
 Version 2 shipped 2026-07-12 (git tag `v2`). Version 1 (the original launch build:
 E-Tower Traditional Double only, before single and triple were added; git tag `v1`,
 commit 9749e08) stays reachable at https://dormview.vercel.app/v1 as `v1.html`, with its

@@ -76,9 +76,12 @@ Deployed:
 - **Live at https://dormview.vercel.app** (2026-07-11), project `dormview` on Vercel team
   `26kimiys-projects`, shipped via the local Vercel CLI (logged in as 26kimiy). Redeploy
   steps are in `docs/DEPLOYMENT.md`.
+- **On GitHub: https://github.com/26kimiy/dormview** (private, 2026-07-12). v2 is the repo
+  root (the live build); v1 (Traditional Double only) sits in `v1/`. Git tags `v1`
+  (9749e08) and `v2` (dd566e2) mark each version. Pushed with the `gh` CLI (authenticated
+  as 26kimiy), so `git push` future changes normally.
 
 Blocked / not done:
-- **GitHub** push is blocked: the GitHub connector was never authorized in the session.
 - Next design work (not started): the UI to make the app configurable for anyone in
   E-Tower, then all of CMU, then any college. See `docs/ROADMAP.md`.
 
@@ -194,8 +197,9 @@ semi-suite triple uses this; rectangular rooms still use the classic path. See t
 
 ## 10. Immediate next steps (when you resume)
 
-1. Deploy is DONE (https://dormview.vercel.app, see `docs/DEPLOYMENT.md` for redeploy
-   steps). Still open: connect GitHub if you want the repo pushed.
+1. Deploy is DONE (https://dormview.vercel.app) and the repo is now on GitHub
+   (https://github.com/26kimiy/dormview, private). See `docs/DEPLOYMENT.md` for redeploy
+   steps.
 2. Then design the "configurable for anyone in E-Tower" UI (more room types). This is the
    agreed next version.
 3. Then the "anyone at CMU" UI (more buildings), then "any college" (more schools).
