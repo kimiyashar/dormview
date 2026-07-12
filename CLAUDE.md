@@ -185,9 +185,12 @@ Every placed object is a `THREE.Group`/`Mesh` pushed to `items[]` with `userData
    `applyRoomSelection` + `CURRENT_ROOM_KEY`). A different key rebuilds.
 4. Add a test path in `.test/scenetest.js` (there is already a landing-registry check).
 
-The near-term product direction is to make room GEOMETRY data-driven (walls, door, window,
-closets, built-ins described by a config object per room) so new rooms are pure data, not
-new builder code. That refactor has NOT been done yet. See `docs/ROADMAP.md`.
+Room GEOMETRY is now partially data-driven (2026-07-11): a room may carry a `shape` block
+(`outline` polygon, `windows` centers, `door.x`, `bath` rect, `light` position) and
+`buildRoom` builds the polygon: per-edge walls with outward normals (auto-hide aware),
+multiple windows + radiators + curtains, offset door, dollhouse-height bath block. The
+semi-suite triple uses this; rectangular rooms still use the classic path. See the
+`semi_triple` entry in SCHOOLS for the reference example.
 
 ## 10. Immediate next steps (when you resume)
 
