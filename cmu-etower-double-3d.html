@@ -598,7 +598,7 @@ function buildRoom(){
     g.userData.hoverInfo={name:'Closet', dims:'30" x 80" door', hint:'Recessed built-in closet &middot; buy slim hangers'};
     roomGroup.add(g);
   }
-  closetDoor(-1); closetDoor(1);
+  closetDoor(-1); if(ROOM_CLOSETS>1) closetDoor(1);   // the single has just one closet
 
   /* WINDOW on the front wall, mounted on the INNER face so it shows from inside */
   var wW=64, wH=52, sill=28, cy=sill+wH/2;
@@ -727,10 +727,24 @@ function makeDesk(){                        // 42 x 24 x 30 desk (the shelf hutc
   var pL=box(1.4,h-1.5,d,MAT.oak); pL.position.set(-w/2+0.7,(h-1.5)/2,0); g.add(pL);
   var pR=box(1.4,h-1.5,d,MAT.oak); pR.position.set(w/2-0.7,(h-1.5)/2,0); g.add(pR);
   var back=box(w-2,h-1.5,1,MAT.oak); back.position.set(0,(h-1.5)/2,-d/2+0.6); g.add(back);
-  // drawer block on the right
-  var dr=box(w/2-3,9,d-4,MAT.oak); dr.position.set(w/4,h-7,1); g.add(dr);
-  var hd=box(6,0.8,0.8,MAT.metal); hd.position.set(w/4,h-7,d/2-1.4); g.add(hd);
-  g.userData.recolorTargets=[C_WOOD]; return tagItem(g,'Desk',w,h,d,'CMU oak desk; the shelf on top moves separately');
+  // slim center drawer under the top (the big drawer unit is a separate pedestal)
+  var dr=box(16,3,1,MAT.oak); dr.position.set(0,h-3.6,d/2-1); g.add(dr);
+  var hd=box(6,0.7,0.7,MAT.metal); hd.position.set(0,h-3.6,d/2-0.4); g.add(hd);
+  g.userData.recolorTargets=[C_WOOD];
+  tagItem(g,'Desk',w,h,d,'CMU oak desk; the shelf and drawer unit move separately');
+  g.userData.clearanceH=28;        // open space under the desktop (drawer pedestal tucks in)
+  return g;
+}
+function makeDeskDrawers(){          // freestanding under-desk drawer pedestal (15 x 18 x 24)
+  var g=new THREE.Group(); var w=15,d=18,h=24;
+  var body=box(w,h,d,MAT.oak); body.position.y=h/2; g.add(body);
+  var top=box(w,1,d,MAT.oakTop); top.position.y=h-0.5; g.add(top);
+  for(var i=0;i<2;i++){ var f=box(w-2.4,h/2-2.6,0.8,MAT.oakTop); f.position.set(0,h*0.28+i*h*0.42,d/2-0.2); g.add(f);
+    var hd=box(5,0.7,0.7,MAT.metal); hd.position.set(0,h*0.28+i*h*0.42+2.5,d/2+0.2); g.add(hd); }
+  g.userData.recolorTargets=[C_WOOD];
+  tagItem(g,'Under-desk drawers',w,h,d,'Freestanding; slides under the desk or anywhere else');
+  g.userData.tucks=true;           // fits under furniture with clearance instead of stacking on top
+  return g;
 }
 function makeHutch(){                       // the desk's shelf hutch, separable: put it anywhere
   var g=new THREE.Group(); var w=42, h=18, dd=13.2;
@@ -1044,7 +1058,7 @@ function kindFromId(id){
   if(/^bedL/.test(id)) return 'bed_L'; if(/^bedR/.test(id)) return 'bed_R';
   if(/^bedM/.test(id)) return 'bed_L';   // triple's bunk-top / third bed
   if(/^dresser/.test(id)) return 'dresser'; if(/^desk/.test(id)) return 'desk'; if(/^chair/.test(id)) return 'chair';
-  if(/^hutch/.test(id)) return 'hutch';
+  if(/^hutch/.test(id)) return 'hutch'; if(/^pedestal/.test(id)) return 'pedestal';
   return null;
 }
 function addItem(id, obj, x, z, rotY){
@@ -1057,7 +1071,7 @@ function byId(id){ for(var i=0;i<items.length;i++) if(items[i].userData.id===id)
 /* master builder registry (kind -> object3D), used by inventory tray + undo/redo */
 var RAW = {
   bed_L:function(){return makeBed('L');}, bed_R:function(){return makeBed('R');},
-  desk:makeDesk, hutch:makeHutch, chair:makeChair, stool:function(){return makeStool();},
+  desk:makeDesk, hutch:makeHutch, pedestal:makeDeskDrawers, chair:makeChair, stool:function(){return makeStool();},
   dresser:makeDresser, closet:makeCloset,
   cart:makeCart, microwave:makeMicrowave, fridge:makeFridge, bookshelf:makeBookshelf,
   nightstand:makeNightstand, tv:makeTV, plant:makePlant, fan:makeFan, beanbag:makeBeanbag,
@@ -1073,10 +1087,12 @@ function build(kind){ var o=RAW[kind]?RAW[kind]():null; if(o) o.userData.kind=ki
 /* Matches the real room: dresser + desk clustered near the door in each back
    corner, bed running along the side wall toward the window. No freestanding
    wardrobe (E-Tower has built-in closets); a wardrobe is in the Add menu. */
-function addDeskSet(sfx, x, z, rot){   // desk plus its separable shelf hutch resting on top
+function addDeskSet(sfx, x, z, rot){   // desk + separable shelf on top + drawer pedestal under
   addItem('desk'+sfx, makeDesk(), x, z, rot);
   var h=addItem('hutch'+sfx, makeHutch(), x - Math.sin(rot)*5.4, z - Math.cos(rot)*5.4, rot);
   h.position.y=30;                     // sits on the 30" desktop, at the desk's back edge
+  // pedestal tucked under the right half of the desk (local +x offset, rotated to world)
+  addItem('pedestal'+sfx, makeDeskDrawers(), x + Math.cos(rot)*10, z - Math.sin(rot)*10, rot);
 }
 function layoutDeskFoot(bedTop){   // shared arrangement; only the bed height differs
   BED_TOP=bedTop;
@@ -1106,22 +1122,22 @@ function layoutSingle(bedTop){   // matches the CMU TS floor plan: bed on the le
   addItem('chairL', makeChair(), 10, D/2-46, 0);
   addItem('dresserL', makeDresser(), W/2-9, -D/2+28, -Math.PI/2);
 }
-function layoutTriple(bedTop, bunk){   // matches room 323's virtual tour: two beds side
-  BED_TOP=bedTop;                      // by side on the left, one under the window,
-  var W=ROOM.w, D=ROOM.d;              // desks along the walls, dressers mid-room
-  addItem('bedL', makeBed('L', bedTop), -W/2+20.5, D/2-46, Math.PI);
-  var bm=addItem('bedM', makeBed('L', bedTop), bunk? -W/2+20.5 : -W/2+70.5, D/2-46, Math.PI);
+function layoutTriple(bedTop, bunk){   // room 323 per the measured dollhouse scan: three
+  BED_TOP=bedTop;                      // beds in a row along the window wall, desks on the
+  var W=ROOM.w, D=ROOM.d, bx=W/2-53;   // left and back walls, dressers on the right
+  addItem('bedL', makeBed('L', bedTop), -bx, D/2-20.5, Math.PI/2);
+  var bm=addItem('bedM', makeBed('L', bedTop), bunk? -bx : 0, bunk? D/2-20.5 : D/2-29, Math.PI/2);
   if(bunk) bm.position.y=46;
-  addItem('bedR', makeBed('R', bedTop), W/2-43, D/2-20.5, Math.PI/2);
-  addDeskSet('L', -W/2+31, -D/2+13, 0);
-  addItem('chairL', makeChair(), -W/2+31, -D/2+37, Math.PI);
-  addDeskSet('M', W/2-12, -D/2+25, Math.PI/2);
-  addItem('chairM', makeChair(), W/2-27, -D/2+25, -Math.PI/2);
-  addDeskSet('R', W/2-12, -D/2+75, Math.PI/2);
-  addItem('chairR', makeChair(), W/2-27, -D/2+75, -Math.PI/2);
-  addItem('dresserL', makeDresser(), 0, D/2-18, Math.PI);
-  addItem('dresserM', makeDresser(), 30, -20, 0);
-  addItem('dresserR', makeDresser(), 65, -20, 0);
+  addItem('bedR', makeBed('R', bedTop), bx, D/2-20.5, Math.PI/2);
+  addDeskSet('L', -W/2+12, -D/2+25, -Math.PI/2);
+  addItem('chairL', makeChair(), -W/2+27, -D/2+25, Math.PI/2);
+  addDeskSet('M', -W/2+12, -D/2+75, -Math.PI/2);
+  addItem('chairM', makeChair(), -W/2+27, -D/2+75, Math.PI/2);
+  addDeskSet('R', bx, -D/2+13, 0);
+  addItem('chairR', makeChair(), bx, -D/2+37, Math.PI);
+  addItem('dresserL', makeDresser(), W/2-9, -20, -Math.PI/2);
+  addItem('dresserM', makeDresser(), W/2-9, -55, -Math.PI/2);
+  addItem('dresserR', makeDresser(), 0, -20, 0);
 }
 function layoutBunk(){            // both beds bunked on the left, right wall freed
   BED_TOP=20;
@@ -1150,6 +1166,7 @@ function layoutOpen(){           // dressers back corners, beds mid-wall, desks 
 
 var currentLayout='standard';
 var ROOM_BEDS=2;      // beds in the current room type (1 single, 2 double, 3 triple)
+var ROOM_CLOSETS=2;   // built-in closet doors (the single has 1)
 function applyLayout(name){
   currentLayout=name; deselect(); clearItems();
   // singles and triples have their own arrangements; Standard/Raised drive the
@@ -1649,6 +1666,9 @@ function supportHeight(o){
     if(ob.max.y<3) continue;                                   // ignore rugs / flat items
     var oa=(ob.max.x-ob.min.x)*(ob.max.z-ob.min.z);
     if(oArea>oa*1.6) continue;                                 // only stack smaller items onto larger supports
+    // tucking items (under-desk drawers) slide beneath open furniture instead of stacking on it
+    if(o.userData.tucks && other.userData.clearanceH && o.userData.footprint &&
+       o.userData.footprint.h<=other.userData.clearanceH) continue;
     if(cx>ob.min.x-1 && cx<ob.max.x+1 && cz>ob.min.z-1 && cz<ob.max.z+1) best=Math.max(best, ob.max.y);
   }
   return best;
@@ -1779,6 +1799,7 @@ var CATALOG=[
   {kind:'closet', label:'Wardrobe', dim:'48x24x72"', icon:'🚪'},
   {kind:'desk', label:'Desk', dim:'42x24x30"', icon:'🖥️'},
   {kind:'hutch', label:'Desk shelf', dim:'42x13x18"', icon:'📚'},
+  {kind:'pedestal', label:'Under-desk drawers', dim:'15x18x24"', icon:'🗄️'},
   {kind:'chair', label:'Desk chair', dim:'18x20x33"', icon:'🪑'},
   {kind:'stool', label:'Folding stool', dim:'15x18x12" adj.', icon:'🪜'},
   {kind:'dresser', label:'Dresser', dim:'30x18x44"', icon:'🧳'},
@@ -1937,6 +1958,10 @@ function loadState(s){
   if(typeof s.bedTop==='number') BED_TOP=s.bedTop;
   if(s.roomKey) CURRENT_ROOM_KEY=s.roomKey;
   if(typeof s.beds==='number') ROOM_BEDS=s.beds;
+  // per-room extras (closet count etc.) come from the registry
+  try{ var rk=CURRENT_ROOM_KEY.split('/'), rc=SCHOOLS[rk[0]].buildings[rk[1]].rooms[rk[2]];
+    if(rc){ ROOM_CLOSETS=rc.closets||2; if(typeof s.beds!=='number') ROOM_BEDS=rc.beds||2; }
+  }catch(e){ ROOM_CLOSETS=2; }
   currentLayout=s.layout||currentLayout;
   if(s.colors){
     if(s.colors.wall && document.getElementById('c_wall')) document.getElementById('c_wall').value=s.colors.wall;
@@ -1993,8 +2018,8 @@ var SCHOOLS = {
   cmu:{ name:'Carnegie Mellon University', buildings:{
     etower:{ name:'Morewood Gardens (E-Tower)', rooms:{
       trad_double:{ name:'Traditional Double', room:{w:151.5,d:166,h:96}, layout:'standard', beds:2 },
-      trad_single:{ name:'Traditional Single', room:{w:151.5,d:110,h:96}, layout:'standard', beds:1 },
-      semi_triple:{ name:'Semi-Suite Triple (size est.)', room:{w:230,d:140,h:96}, layout:'standard', beds:3 }
+      trad_single:{ name:'Traditional Single', room:{w:151.5,d:110,h:96}, layout:'standard', beds:1, closets:1 },
+      semi_triple:{ name:'Semi-Suite Triple (approx.)', room:{w:306,d:158,h:96}, layout:'standard', beds:3 }
     }}
   }}
 };
@@ -2027,7 +2052,7 @@ function applyRoomSelection(uKey,bKey,rKey,cfg){
   var t=document.getElementById('tbTitle'); if(t&&t.childNodes&&t.childNodes.length) t.childNodes[0].nodeValue=R.name+' ';
   var c=document.getElementById('tbCrumb'); if(c) c.innerHTML=S.name+' · '+B.name;
   if(sameRoom) return;                       // keep the user's current / restored arrangement
-  ROOM_BEDS=cfg.beds||2;
+  ROOM_BEDS=cfg.beds||2; ROOM_CLOSETS=cfg.closets||2;
   if(cfg.room){ ROOM.w=cfg.room.w; ROOM.d=cfg.room.d; ROOM.h=cfg.room.h;
     if(document.getElementById('rW'))document.getElementById('rW').value=ROOM.w;
     if(document.getElementById('rD'))document.getElementById('rD').value=ROOM.d;
