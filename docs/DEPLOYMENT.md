@@ -7,11 +7,18 @@ production). Deployed with the local Vercel CLI on Kimi's Mac, which is logged i
 `26kimiy` (binary at `~/.npm-global/bin/vercel`). The Cowork Vercel connector still cannot
 reach that team; use the CLI.
 
+Version 2 shipped 2026-07-12 (git tag `v2`). Version 1 (the launch build the floor
+first used, git tag `v1`) stays reachable at https://dormview.vercel.app/v1 as
+`v1.html`, with its autosave key renamed to `dormview_v1_archive` so the two versions
+cannot overwrite each other's saved layouts.
+
 To redeploy after editing the HTML:
 
 ```
 mkdir -p /tmp/dormview
 cp cmu-etower-double-3d.html /tmp/dormview/index.html
+git show v1:cmu-etower-double-3d.html > /tmp/dormview/v1.html
+sed -i '' "s/var LS_KEY='dormview_etower_double_v2'/var LS_KEY='dormview_v1_archive'/" /tmp/dormview/v1.html
 printf '{"cleanUrls":true}' > /tmp/dormview/vercel.json
 cd /tmp/dormview && vercel deploy --prod --yes --scope 26kimiys-projects
 ```
