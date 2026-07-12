@@ -5,6 +5,15 @@ room type, then get an accurate to-scale 3D model you can furnish, recolor, resi
 before move-in. First room shipped: Carnegie Mellon University, Morewood Gardens (E-Tower),
 Traditional Double.
 
+## Versions
+
+- **v2 (current, live)** - the file at the repo root, `cmu-etower-double-3d.html`. E-Tower
+  Traditional Double, Traditional Single, and Semi-Suite Triple, plus every refinement.
+  This is the build deployed at https://dormview.vercel.app (git tag `v2`).
+- **v1 (archived)** - in the [`v1/`](v1/) folder. The original launch build: Traditional
+  Double only, before single and triple were added (git tag `v1`, commit 9749e08). Frozen;
+  kept so the first version stays openable.
+
 ## Run it
 
 Open `cmu-etower-double-3d.html` in any modern browser. It needs internet on first load

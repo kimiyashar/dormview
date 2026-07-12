@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Editor / tooling
+.vscode/
+*.log
+
+# Scratch
+/tmp/
