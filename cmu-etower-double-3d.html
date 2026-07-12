@@ -250,6 +250,7 @@
         <div class="chip" data-layout="open">Open middle</div>
       </div>
       <div class="note"><b>Standard</b>: beds on the floor (~20" mattress). <b>Beds raised</b>: lofted ~36" with open storage underneath. Both put the desk's long side against the foot of the bed, open toward the door, chair pushed in. <b>Bunked</b> stacks both beds to free a wall.</div>
+      <div class="row"><div class="chip" id="btnResetLayout" title="Put all furniture back where the preset starts it. Undo brings your arrangement back.">&#8634; Reset to default layout</div></div>
     </div>
   </div>
 
@@ -1718,6 +1719,10 @@ window.addEventListener('keydown',function(e){ if(e.key==='Escape') deselect(); 
 document.getElementById('pW').addEventListener('input',function(){ if(selected&&selected.userData.resizable){ resizePoster(selected, +this.value||24, selected.userData.ph, selected.userData.pd); saveIf(); } });
 document.getElementById('pH').addEventListener('input',function(){ if(selected&&selected.userData.resizable){ resizePoster(selected, selected.userData.pw, +this.value||36, selected.userData.pd); saveIf(); } });
 document.getElementById('pD').addEventListener('input',function(){ if(selected&&selected.userData.resizable&&(selected.userData.box||selected.userData.scaleResize)){ resizePoster(selected, selected.userData.pw, selected.userData.ph, +this.value||12); saveIf(); } });
+// commit a typed resize to the undo history once the field settles (blur / Enter)
+['pW','pH','pD'].forEach(function(id){
+  document.getElementById(id).addEventListener('change',function(){ if(selected) histIf(); });
+});
 document.getElementById('pImg').onclick=function(){ document.getElementById('pFile').click(); };
 function readImageToPoster(f, target){
   var rd=new FileReader(); rd.onload=function(){ applyPosterImage(target, rd.result); }; rd.readAsDataURL(f);
@@ -1944,13 +1949,21 @@ canvas.addEventListener('drop',function(e){ e.preventDefault(); var kind=e.dataT
 
 /* ====================  UNDO / REDO ===================================== */
 var history=[], hcursor=-1;
-function snapshot(){ return items.map(function(o){ return {obj:o,x:o.position.x,y:o.position.y,z:o.position.z,ry:o.rotation.y}; }); }
+function snapshot(){ return items.map(function(o){ var u=o.userData;
+  return {obj:o,x:o.position.x,y:o.position.y,z:o.position.z,ry:o.rotation.y,
+          pw:u.pw,ph:u.ph,pd:u.pd}; }); }
 function pushHistory(){ history=history.slice(0,hcursor+1); history.push(snapshot()); hcursor=history.length-1;
   if(history.length>80){ history.shift(); hcursor--; } updateUndoBtns();
   if(typeof autosave==='function') autosave(); }
 function restoreState(state){
   items.forEach(function(o){ scene.remove(o); });
-  items=state.map(function(s){ s.obj.position.set(s.x,s.y,s.z); s.obj.rotation.y=s.ry; scene.add(s.obj); return s.obj; });
+  items=state.map(function(s){ scene.add(s.obj); return s.obj; });
+  // sizes first (resizing can reseat the item), then the recorded transform wins
+  state.forEach(function(s){ var u=s.obj.userData;
+    if(u.resizable && s.pw && (u.pw!==s.pw||u.ph!==s.ph||u.pd!==s.pd))
+      resizePoster(s.obj, s.pw, s.ph, s.pd);
+    s.obj.position.set(s.x,s.y,s.z); s.obj.rotation.y=s.ry;
+  });
   deselect(); buildShop();
 }
 function undo(){ if(hcursor>0){ hcursor--; restoreState(history[hcursor]); updateUndoBtns(); } }
@@ -1996,6 +2009,10 @@ document.getElementById('btnMeasure').onclick=function(){
 document.getElementById('btnReset').onclick=function(){ setView('corner'); };
 document.querySelectorAll('#camPresets .chip').forEach(function(c){ c.onclick=function(){ setView(c.dataset.cam); }; });
 document.querySelectorAll('#layoutPresets .chip').forEach(function(c){ c.onclick=function(){ applyLayout(c.dataset.layout); }; });
+// reset to the preset's default arrangement; applyLayout pushes history first, so
+// Cmd/Ctrl+Z (or Undo) returns to whatever the room looked like before the reset
+var brl=document.getElementById('btnResetLayout');
+if(brl) brl.onclick=function(){ applyLayout(currentLayout); };
 document.querySelectorAll('#decorBody input').forEach(function(i){ i.addEventListener('change',applyDecor); });
 document.getElementById('applyRoom').onclick=function(){
   ROOM.w=parseFloat(document.getElementById('rW').value)||ROOM.w;
