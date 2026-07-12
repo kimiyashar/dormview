@@ -546,11 +546,53 @@ function setHover(obj, name, w, h, d, hint){
   obj.userData.hoverInfo = { name:name, dims:dimLine(w,h,d), hint:hint||null };
 }
 
+function pointInPoly(x, z, poly){
+  var inside=false;
+  for(var i=0,j=poly.length-1;i<poly.length;j=i++){
+    var xi=poly[i][0], zi=poly[i][1], xj=poly[j][0], zj=poly[j][1];
+    if(((zi>z)!==(zj>z)) && (x < (xj-xi)*(z-zi)/(zj-zi)+xi)) inside=!inside;
+  }
+  return inside;
+}
 function buildRoom(){
   while(roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
   walls = {};
+  decorDel('curtain');                        // applyDecor re-makes them for the new room
   var W=ROOM.w, D=ROOM.d, H=ROOM.h;
+  var S=ROOM_SHAPE;                           // polygon rooms (the semi-suite triple)
 
+  if(S){
+    // floor + ceiling traced from the wall outline
+    var shp=new THREE.Shape(S.outline.map(function(p){ return new THREE.Vector2(p[0], -p[1]); }));
+    var fg=new THREE.ShapeGeometry(shp);
+    var uv=fg.attributes.uv, ps=fg.attributes.position;
+    for(var vi=0;vi<uv.count;vi++){ uv.setXY(vi,(ps.getX(vi)+W/2)/W,(ps.getY(vi)+D/2)/D); }
+    floorMesh=new THREE.Mesh(fg, MAT.floor);
+    floorMesh.rotation.x=-Math.PI/2; floorMesh.receiveShadow=true;
+    setHover(floorMesh,'Floor',W,0,D);
+    floorMesh.userData.recolorTargets=[C_FLOORT];
+    roomGroup.add(floorMesh);
+    ceilMesh=new THREE.Mesh(fg.clone(), MAT.ceil);
+    ceilMesh.rotation.x=Math.PI/2; ceilMesh.position.y=H; ceilMesh.visible=false;
+    setHover(ceilMesh,'Ceiling',W,0,D);
+    roomGroup.add(ceilMesh);
+    // one wall per outline edge, pushed to the outside of the polygon
+    for(var ei=0;ei<S.outline.length;ei++){
+      var a=S.outline[ei], b=S.outline[(ei+1)%S.outline.length];
+      var dx=b[0]-a[0], dz=b[1]-a[1], len=Math.sqrt(dx*dx+dz*dz);
+      var nx=dz/len, nz=-dx/len;
+      var midx=(a[0]+b[0])/2, midz=(a[1]+b[1])/2;
+      if(pointInPoly(midx-nx*3, midz-nz*3, S.outline)===false){ nx=-nx; nz=-nz; }
+      var m=new THREE.Mesh(new THREE.BoxGeometry(len+WALL_T, H, WALL_T), MAT.wall);
+      m.rotation.y=-Math.atan2(dz,dx);
+      m.position.set(midx+nx*WALL_T/2, H/2, midz+nz*WALL_T/2);
+      m.receiveShadow=true;
+      setHover(m,'Wall',len,H,WALL_T);
+      m.userData.recolorTargets=[C_WALLT];
+      m.userData.normal=new THREE.Vector3(nx,0,nz);
+      roomGroup.add(m); walls['Wall '+ei]=m;
+    }
+  } else {
   floorMesh = new THREE.Mesh(new THREE.BoxGeometry(W, 2, D), MAT.floor);
   floorMesh.position.set(0,-1,0); floorMesh.receiveShadow=true;
   setHover(floorMesh, 'Floor', W, 0, D);
@@ -562,17 +604,18 @@ function buildRoom(){
   setHover(ceilMesh, 'Ceiling', W, 0, D);
   roomGroup.add(ceilMesh);
 
-  function wall(name, w, h, d, x, z, faceLen){
+  var wall=function(name, w, h, d, x, z, faceLen){
     var m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), MAT.wall);
     m.position.set(x, h/2, z); m.receiveShadow=true;
     setHover(m, name, faceLen, h, WALL_T);
     m.userData.recolorTargets=[C_WALLT];
     roomGroup.add(m); walls[name]=m; return m;
-  }
+  };
   wall('Back wall',  W+WALL_T*2, H, WALL_T, 0, -D/2 - WALL_T/2, W);
   wall('Front wall', W+WALL_T*2, H, WALL_T, 0,  D/2 + WALL_T/2, W);
   wall('Left wall',  WALL_T, H, D, -W/2 - WALL_T/2, 0, D);
   wall('Right wall', WALL_T, H, D,  W/2 + WALL_T/2, 0, D);
+  }
 
   /* DOOR on the back wall, centered, facing INTO the room (steel-blue + mirror) */
   var dW=36, dH=80;
@@ -584,6 +627,7 @@ function buildRoom(){
   var lever=box(4.6,1.3,1.4,MAT.brass); lever.position.set(dW/2-5, 38, -D/2+2.4); doorG.add(lever);
   doorG.traverse(function(o){ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
   doorG.userData.hoverInfo={name:'Door', dims:dimLine(dW,dH,1.75), hint:'Steel-blue entry door, full-length mirror inside'};
+  if(S && S.door) doorG.position.x=S.door.x;   // polygon rooms: door sits at the corridor end
   roomGroup.add(doorG);
 
   /* two CLOSET DOORS flanking the entry, flush on the back wall (recessed, no volume) */
@@ -598,27 +642,52 @@ function buildRoom(){
     g.userData.hoverInfo={name:'Closet', dims:'30" x 80" door', hint:'Recessed built-in closet &middot; buy slim hangers'};
     roomGroup.add(g);
   }
-  closetDoor(-1); if(ROOM_CLOSETS>1) closetDoor(1);   // the single has just one closet
+  if(!S){ if(ROOM_CLOSETS>0) closetDoor(-1); if(ROOM_CLOSETS>1) closetDoor(1); }   // single: 1; triple uses freestanding wardrobes
 
-  /* WINDOW on the front wall, mounted on the INNER face so it shows from inside */
+  /* WINDOW(S) on the front wall, mounted on the INNER face so they show from inside.
+     Rectangular rooms have one centered window; polygon rooms list window centers. */
   var wW=64, wH=52, sill=28, cy=sill+wH/2;
   var frameMat=new THREE.MeshStandardMaterial({color:0x5a4632, roughness:0.55});   // dark frame: contrasts any wall colour
   var skyMat=new THREE.MeshBasicMaterial({color:0x9ad3f0});                          // unlit bright sky, always visible
-  var frame=box(wW+7, wH+7, 3, frameMat); frame.position.set(0, cy, D/2-1.6);
-  frame.userData.hoverInfo={name:'Window', dims:dimLine(wW,wH,2), hint:'Sill ~28" up &middot; E-Tower window'};
-  roomGroup.add(frame);
-  var pane=box(wW, wH, 0.6, skyMat); pane.position.set(0, cy, D/2-3.0);
-  pane.userData.hoverInfo=frame.userData.hoverInfo; roomGroup.add(pane);
-  var mv=box(2,wH,0.9,frameMat); mv.position.set(0,cy,D/2-3.5); roomGroup.add(mv);
-  var mh=box(wW,2,0.9,frameMat); mh.position.set(0,cy,D/2-3.5); roomGroup.add(mh);
-  var winLight=new THREE.PointLight(0xdcf0ff,0.45,340); winLight.position.set(0,cy,D/2-14); roomGroup.add(winLight);
-  /* radiator, in front of the wall below the window */
-  var radG=new THREE.Group();
-  var rad=box(wW-2, 16, 7, MAT.white); rad.position.y=12; radG.add(rad);
-  for(var i=0;i<18;i++){ var fin=box(0.6,14,7.4,MAT.metal); fin.position.set(-wW/2+4+i*3, 12, 0); radG.add(fin); }
-  radG.position.set(0, 0, D/2 - 4.5);
-  radG.userData.hoverInfo={name:'Radiator (heat)', dims:dimLine(wW-2,16,7), hint:'E-Tower heat. No A/C, so plan a fan.'};
-  roomGroup.add(radG);
+  (S && S.windows ? S.windows : [0]).forEach(function(wcx){
+    var wg=new THREE.Group();
+    var frame=box(wW+7, wH+7, 3, frameMat); frame.position.set(0, cy, D/2-1.6);
+    frame.userData.hoverInfo={name:'Window', dims:dimLine(wW,wH,2), hint:'Sill ~28" up &middot; E-Tower window'};
+    wg.add(frame);
+    var pane=box(wW, wH, 0.6, skyMat); pane.position.set(0, cy, D/2-3.0);
+    pane.userData.hoverInfo=frame.userData.hoverInfo; wg.add(pane);
+    var mv=box(2,wH,0.9,frameMat); mv.position.set(0,cy,D/2-3.5); wg.add(mv);
+    var mh=box(wW,2,0.9,frameMat); mh.position.set(0,cy,D/2-3.5); wg.add(mh);
+    var winLight=new THREE.PointLight(0xdcf0ff,0.45,340); winLight.position.set(0,cy,D/2-14); wg.add(winLight);
+    /* radiator, in front of the wall below the window */
+    var radG=new THREE.Group();
+    var rad=box(wW-2, 16, 7, MAT.white); rad.position.y=12; radG.add(rad);
+    for(var i=0;i<18;i++){ var fin=box(0.6,14,7.4,MAT.metal); fin.position.set(-wW/2+4+i*3, 12, 0); radG.add(fin); }
+    radG.position.set(0, 0, D/2 - 4.5);
+    radG.userData.hoverInfo={name:'Radiator (heat)', dims:dimLine(wW-2,16,7), hint:'E-Tower heat. No A/C, so plan a fan.'};
+    wg.add(radG);
+    wg.position.x=wcx;
+    roomGroup.add(wg);
+  });
+  /* PRIVATE BATHROOM block for polygon rooms: tiled floor + walls with a door gap */
+  if(S && S.bath){
+    var bt=S.bath, bw=bt.x2-bt.x1, bd=bt.z2-bt.z1, bcx=(bt.x1+bt.x2)/2, bcz=(bt.z1+bt.z2)/2;
+    var tileMat=new THREE.MeshStandardMaterial({color:0xf4f2ea, roughness:0.35});
+    var bf=box(bw, 1.5, bd, tileMat); bf.position.set(bcx, 0.75, bcz);
+    bf.userData.hoverInfo={name:'Private bathroom', dims:dimLine(bw,0,bd), hint:'Semi-suite bath: toilet, sink, shower'};
+    roomGroup.add(bf);
+    var bwallMat=new THREE.MeshStandardMaterial({color:0xeceae2, roughness:0.6});
+    // dollhouse-style half walls so the bath never hides the rest of the room
+    var bwall=function(w,d,x,z){ var m=box(w,42,d,bwallMat); m.position.set(x,21,z);
+      m.userData.hoverInfo=bf.userData.hoverInfo; roomGroup.add(m); };
+    var gapX=bt.x1+bw*0.72, gapW=30;                        // door gap on the room side
+    bwall(gapX-gapW/2-bt.x1, 3, (bt.x1+gapX-gapW/2)/2, bt.z2-1.5);
+    bwall(bt.x2-(gapX+gapW/2), 3, (gapX+gapW/2+bt.x2)/2, bt.z2-1.5);
+    bwall(3, bd, bt.x1+1.5, bcz); bwall(3, bd, bt.x2-1.5, bcz);
+    bwall(bw, 3, bcx, bt.z1+1.5);
+    var wc=box(16,16,20,MAT.white); wc.position.set(bt.x1+14, 8, bt.z1+16);
+    wc.userData.hoverInfo=bf.userData.hoverInfo; roomGroup.add(wc);
+  }
 
   /* ceiling light + smoke detector */
   var lightG=new THREE.Group();
@@ -626,8 +695,11 @@ function buildRoom(){
   disk.position.set(0,H-1,0); lightG.add(disk);
   var smoke=new THREE.Mesh(new THREE.CylinderGeometry(3,3,1.4,18), MAT.white); smoke.position.set(22,H-0.7,-22); lightG.add(smoke);
   lightG.userData.hoverInfo={name:'Ceiling light', dims:'14" round fixture', hint:'Toggle it in the View panel'};
+  if(S && S.light){ lightG.position.set(S.light[0],0,S.light[1]); }   // keep it out of the bath block
   roomGroup.add(lightG); ceilFixture=lightG;
-  ceilLamp=new THREE.PointLight(0xfff2d6, 0.4, 420); ceilLamp.position.set(0,H-12,0); roomGroup.add(ceilLamp);
+  ceilLamp=new THREE.PointLight(0xfff2d6, 0.4, 420);
+  ceilLamp.position.set(S&&S.light?S.light[0]:0, H-12, S&&S.light?S.light[1]:0);
+  roomGroup.add(ceilLamp);
   var _cl=document.getElementById('tgCeilLight'); var on=(!_cl)||_cl.checked;
   ceilFixture.visible=on; ceilLamp.visible=on;
 
@@ -1059,6 +1131,7 @@ function kindFromId(id){
   if(/^bedM/.test(id)) return 'bed_L';   // triple's bunk-top / third bed
   if(/^dresser/.test(id)) return 'dresser'; if(/^desk/.test(id)) return 'desk'; if(/^chair/.test(id)) return 'chair';
   if(/^hutch/.test(id)) return 'hutch'; if(/^pedestal/.test(id)) return 'pedestal';
+  if(/^closet/.test(id)) return 'closet';
   return null;
 }
 function addItem(id, obj, x, z, rotY){
@@ -1122,22 +1195,27 @@ function layoutSingle(bedTop){   // matches the CMU TS floor plan: bed on the le
   addItem('chairL', makeChair(), 10, D/2-46, 0);
   addItem('dresserL', makeDresser(), W/2-9, -D/2+28, -Math.PI/2);
 }
-function layoutTriple(bedTop, bunk){   // room 323 per the measured dollhouse scan: three
-  BED_TOP=bedTop;                      // beds in a row along the window wall, desks on the
-  var W=ROOM.w, D=ROOM.d, bx=W/2-53;   // left and back walls, dressers on the right
-  addItem('bedL', makeBed('L', bedTop), -bx, D/2-20.5, Math.PI/2);
-  var bm=addItem('bedM', makeBed('L', bedTop), bunk? -bx : 0, bunk? D/2-20.5 : D/2-29, Math.PI/2);
+function layoutTriple(bedTop, bunk){   // room 323 per the measured scan: three beds along
+  BED_TOP=bedTop;                      // the windows, desks on the left wall and right
+  var D=ROOM.d;                        // section, wardrobes along the bath wall
+  addItem('bedL', makeBed('L', bedTop), -108, D/2-20.5, Math.PI/2);
+  var bm=addItem('bedM', makeBed('L', bedTop), bunk? -108 : 2, D/2-20.5, Math.PI/2);
   if(bunk) bm.position.y=46;
-  addItem('bedR', makeBed('R', bedTop), bx, D/2-20.5, Math.PI/2);
-  addDeskSet('L', -W/2+12, -D/2+25, -Math.PI/2);
-  addItem('chairL', makeChair(), -W/2+27, -D/2+25, Math.PI/2);
-  addDeskSet('M', -W/2+12, -D/2+75, -Math.PI/2);
-  addItem('chairM', makeChair(), -W/2+27, -D/2+75, Math.PI/2);
-  addDeskSet('R', bx, -D/2+13, 0);
-  addItem('chairR', makeChair(), bx, -D/2+37, Math.PI);
-  addItem('dresserL', makeDresser(), W/2-9, -20, -Math.PI/2);
-  addItem('dresserM', makeDresser(), W/2-9, -55, -Math.PI/2);
-  addItem('dresserR', makeDresser(), 0, -20, 0);
+  addItem('bedR', makeBed('R', bedTop), 112, D/2-20.5, Math.PI/2);
+  // two desks on the left wall of the deep section
+  addDeskSet('L', -141, 25, -Math.PI/2);
+  addItem('chairL', makeChair(), -126, 25, Math.PI/2);
+  addDeskSet('M', -141, -25, -Math.PI/2);
+  addItem('chairM', makeChair(), -126, -25, Math.PI/2);
+  // third desk in the right section, back against its lower wall
+  addDeskSet('R', 100, 11, 0);
+  addItem('chairR', makeChair(), 100, 35, Math.PI);
+  // freestanding wardrobes along the bathroom wall (the triple has no built-in closets)
+  addItem('closetA', makeCloset(), -69, 10, -Math.PI/2);
+  addItem('closetB', makeCloset(), -69, -40, -Math.PI/2);
+  addItem('dresserL', makeDresser(), 144, 35, -Math.PI/2);
+  addItem('dresserM', makeDresser(), 57, 15, Math.PI/2);
+  addItem('dresserR', makeDresser(), -138, -55, 0);
 }
 function layoutBunk(){            // both beds bunked on the left, right wall freed
   BED_TOP=20;
@@ -1167,6 +1245,7 @@ function layoutOpen(){           // dressers back corners, beds mid-wall, desks 
 var currentLayout='standard';
 var ROOM_BEDS=2;      // beds in the current room type (1 single, 2 double, 3 triple)
 var ROOM_CLOSETS=2;   // built-in closet doors (the single has 1)
+var ROOM_SHAPE=null;  // polygon outline config for non-rectangular rooms (the triple)
 function applyLayout(name){
   currentLayout=name; deselect(); clearItems();
   // singles and triples have their own arrangements; Standard/Raised drive the
@@ -1194,7 +1273,13 @@ function toggleDecor(id, on, builder){
 function chk(id){ var e=document.getElementById(id); return e?e.checked:false; }
 
 function applyDecor(){
-  if(!decor['curtain']) decorAdd('curtain', makeCurtains());   // curtains are part of the window
+  if(!decor['curtain']){                       // one curtain set per window
+    var g=new THREE.Group();
+    (ROOM_SHAPE && ROOM_SHAPE.windows ? ROOM_SHAPE.windows : [0]).forEach(function(cx){
+      var c=makeCurtains(); c.position.x=cx; g.add(c);
+    });
+    decorAdd('curtain', g);
+  }
   applyBedding();
 }
 function applyBedding(){
@@ -1407,14 +1492,22 @@ document.getElementById('wallMode').addEventListener('change',function(){ wallMo
 document.getElementById('tgCeiling').addEventListener('change',function(){ if(ceilMesh) ceilMesh.visible=this.checked; });
 document.getElementById('tgCeilLight').addEventListener('change',function(){ if(ceilFixture)ceilFixture.visible=this.checked; if(ceilLamp)ceilLamp.visible=this.checked; });
 function refreshWalls(){
-  if(!walls['Back wall']) return;
-  if(wallMode==='all'){ for(var k in walls) walls[k].visible=true; return; }
-  if(wallMode==='none'){ for(var k in walls) walls[k].visible=false; return; }
+  var k;
+  if(wallMode==='all'){ for(k in walls) walls[k].visible=true; return; }
+  if(wallMode==='none'){ for(k in walls) walls[k].visible=false; return; }
   var cx=camera.position.x, cz=camera.position.z;
-  walls['Left wall'].visible  = cx > -ROOM.w/2;
-  walls['Right wall'].visible = cx <  ROOM.w/2;
-  walls['Back wall'].visible  = cz > -ROOM.d/2;
-  walls['Front wall'].visible = cz <  ROOM.d/2;
+  if(walls['Back wall']){
+    walls['Left wall'].visible  = cx > -ROOM.w/2;
+    walls['Right wall'].visible = cx <  ROOM.w/2;
+    walls['Back wall'].visible  = cz > -ROOM.d/2;
+    walls['Front wall'].visible = cz <  ROOM.d/2;
+    return;
+  }
+  // polygon rooms: hide a wall when its outer face points at the camera
+  for(k in walls){ var m=walls[k]; if(!m.userData.normal) continue;
+    var n=m.userData.normal;
+    m.visible = n.x*(cx-m.position.x) + n.z*(cz-m.position.z) < 0;
+  }
 }
 
 /* ====================  HOVER TOOLTIP  =================================== */
@@ -1960,8 +2053,9 @@ function loadState(s){
   if(typeof s.beds==='number') ROOM_BEDS=s.beds;
   // per-room extras (closet count etc.) come from the registry
   try{ var rk=CURRENT_ROOM_KEY.split('/'), rc=SCHOOLS[rk[0]].buildings[rk[1]].rooms[rk[2]];
-    if(rc){ ROOM_CLOSETS=rc.closets||2; if(typeof s.beds!=='number') ROOM_BEDS=rc.beds||2; }
-  }catch(e){ ROOM_CLOSETS=2; }
+    if(rc){ ROOM_CLOSETS=(typeof rc.closets==='number')?rc.closets:2; ROOM_SHAPE=rc.shape||null;
+      if(typeof s.beds!=='number') ROOM_BEDS=rc.beds||2; }
+  }catch(e){ ROOM_CLOSETS=2; ROOM_SHAPE=null; }
   currentLayout=s.layout||currentLayout;
   if(s.colors){
     if(s.colors.wall && document.getElementById('c_wall')) document.getElementById('c_wall').value=s.colors.wall;
@@ -2019,7 +2113,16 @@ var SCHOOLS = {
     etower:{ name:'Morewood Gardens (E-Tower)', rooms:{
       trad_double:{ name:'Traditional Double', room:{w:151.5,d:166,h:96}, layout:'standard', beds:2 },
       trad_single:{ name:'Traditional Single', room:{w:151.5,d:110,h:96}, layout:'standard', beds:1, closets:1 },
-      semi_triple:{ name:'Semi-Suite Triple (approx.)', room:{w:306,d:158,h:96}, layout:'standard', beds:3 }
+      semi_triple:{ name:'Semi-Suite Triple', room:{w:306,d:188,h:96}, layout:'standard', beds:3, closets:0,
+        // outline traced from the measured room 323 scan: 25'6" window wall, 13'2" left
+        // depth, shallower 8'0" right section, private bath block, entry corridor
+        shape:{
+          outline:[[-153,94],[153,94],[153,-2],[48,-2],[48,36],[-57,36],[-57,-94],[-121,-94],[-121,-64],[-153,-64]],
+          windows:[-108,2,112],
+          door:{x:-89},
+          bath:{x1:-57,z1:-64,x2:48,z2:36},
+          light:[-50,20]
+        } }
     }}
   }}
 };
@@ -2052,7 +2155,7 @@ function applyRoomSelection(uKey,bKey,rKey,cfg){
   var t=document.getElementById('tbTitle'); if(t&&t.childNodes&&t.childNodes.length) t.childNodes[0].nodeValue=R.name+' ';
   var c=document.getElementById('tbCrumb'); if(c) c.innerHTML=S.name+' · '+B.name;
   if(sameRoom) return;                       // keep the user's current / restored arrangement
-  ROOM_BEDS=cfg.beds||2; ROOM_CLOSETS=cfg.closets||2;
+  ROOM_BEDS=cfg.beds||2; ROOM_CLOSETS=(typeof cfg.closets==='number')?cfg.closets:2; ROOM_SHAPE=cfg.shape||null;
   if(cfg.room){ ROOM.w=cfg.room.w; ROOM.d=cfg.room.d; ROOM.h=cfg.room.h;
     if(document.getElementById('rW'))document.getElementById('rW').value=ROOM.w;
     if(document.getElementById('rD'))document.getElementById('rD').value=ROOM.d;
