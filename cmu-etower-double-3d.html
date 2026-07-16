@@ -1188,13 +1188,51 @@ function layoutDeskFoot(bedTop){   // shared arrangement; only the bed height di
 }
 function layoutStandard(){ layoutDeskFoot(20); }   // beds on the floor (~20" mattress top)
 function layoutRaised(){ layoutDeskFoot(36); }      // beds lofted (~36" mattress top, open storage under)
-function layoutSingle(bedTop){   // matches the CMU TS floor plan: bed on the left wall
+function layoutSingle(bedTop){   // matches the CMU TS floor plans: bed on the left wall
   BED_TOP=bedTop;                // toward the window, desk mid-room, dresser on the right
   var W=ROOM.w, D=ROOM.d;
   addItem('bedL', makeBed('L', bedTop), -W/2+20.5, D/2-46, Math.PI);
   addDeskSet('L', 10, D/2-27, Math.PI);
   addItem('chairL', makeChair(), 10, D/2-46, 0);
-  addItem('dresserL', makeDresser(), W/2-9, -D/2+28, -Math.PI/2);
+  if(ROOM_CLOSETS===0){   // narrow singles have no built-in closet: freestanding wardrobe
+    addItem('closetL', makeCloset(), W/2-13, -D/2+30, -Math.PI/2);
+    addItem('dresserL', makeDresser(), W/2-9, -D/2+80, -Math.PI/2);
+  } else {
+    addItem('dresserL', makeDresser(), W/2-9, -D/2+28, -Math.PI/2);
+  }
+}
+function layoutTripleRect(bedTop, bunk){   // rectangular triples (Donner, Mudge, Morewood):
+  BED_TOP=bedTop;                          // two side beds plus one along the window wall
+  var W=ROOM.w, D=ROOM.d, footZ=(D/2-46)-40;
+  addItem('bedL', makeBed('L', bedTop), -W/2+20.5, D/2-46, Math.PI);
+  var bm=addItem('bedM', makeBed('L', bedTop), bunk? -W/2+20.5 : 0, bunk? D/2-46 : D/2-20.5, bunk? Math.PI : Math.PI/2);
+  if(bunk) bm.position.y=46;
+  addItem('bedR', makeBed('R', bedTop), W/2-20.5, D/2-46, Math.PI);
+  addDeskSet('L', -W/2+21, footZ-12, Math.PI);
+  addItem('chairL', makeChair(), -W/2+21, footZ-31, 0);
+  addDeskSet('R', W/2-21, footZ-12, Math.PI);
+  addItem('chairR', makeChair(), W/2-21, footZ-31, 0);
+  addDeskSet('M', 0, D/2-53, Math.PI);
+  addItem('chairM', makeChair(), 0, D/2-72, 0);
+  addItem('dresserL', makeDresser(), -W/2+9, -D/2+15, Math.PI/2);
+  addItem('dresserR', makeDresser(),  W/2-9, -D/2+15, -Math.PI/2);
+  addItem('dresserM', makeDresser(),  W/2-9, -D/2+50, -Math.PI/2);
+}
+function layoutQuad(bedTop){   // Mudge semi-suite quad: two side beds + two by the windows
+  BED_TOP=bedTop;
+  var W=ROOM.w, D=ROOM.d, footZ=(D/2-46)-40;
+  addItem('bedL', makeBed('L', bedTop), -W/2+20.5, D/2-46, Math.PI);
+  addItem('bedR', makeBed('R', bedTop),  W/2-20.5, D/2-46, Math.PI);
+  addItem('bedM', makeBed('L', bedTop), -50, D/2-20.5, Math.PI/2);
+  addItem('bedM2', makeBed('R', bedTop), 50, D/2-20.5, Math.PI/2);
+  addDeskSet('L', -W/2+21, footZ-12, Math.PI); addItem('chairL', makeChair(), -W/2+21, footZ-31, 0);
+  addDeskSet('R',  W/2-21, footZ-12, Math.PI); addItem('chairR', makeChair(),  W/2-21, footZ-31, 0);
+  addDeskSet('M', -50, D/2-53, Math.PI); addItem('chairM', makeChair(), -50, D/2-72, 0);
+  addDeskSet('Q',  50, D/2-53, Math.PI); addItem('chairQ', makeChair(),  50, D/2-72, 0);
+  addItem('dresserL', makeDresser(), -W/2+9, -D/2+15, Math.PI/2);
+  addItem('dresserR', makeDresser(),  W/2-9, -D/2+15, -Math.PI/2);
+  addItem('dresserM', makeDresser(), -W/2+9, -D/2+50, Math.PI/2);
+  addItem('dresserQ', makeDresser(),  W/2-9, -D/2+50, -Math.PI/2);
 }
 function layoutTriple(bedTop, bunk){   // room 323 per the measured scan: three beds along
   BED_TOP=bedTop;                      // the windows, desks on the left wall and right
@@ -1252,7 +1290,11 @@ function applyLayout(name){
   // singles and triples have their own arrangements; Standard/Raised drive the
   // free bed height, Bunked/Open fall back to the base arrangement for them
   if(ROOM_BEDS===1) layoutSingle(name==='raised'?36:20);
-  else if(ROOM_BEDS===3) layoutTriple(name==='raised'?36:20, name==='bunk');
+  else if(ROOM_BEDS===4) layoutQuad(name==='raised'?36:20);
+  else if(ROOM_BEDS===3){
+    if(ROOM_SHAPE) layoutTriple(name==='raised'?36:20, name==='bunk');
+    else layoutTripleRect(name==='raised'?36:20, name==='bunk');
+  }
   else if(name==='raised') layoutRaised();
   else if(name==='bunk') layoutBunk();
   else if(name==='open') layoutOpen();
@@ -2140,6 +2182,27 @@ var SCHOOLS = {
           bath:{x1:-57,z1:-64,x2:48,z2:36},
           light:[-50,20]
         } }
+    }},
+    morewood:{ name:'Morewood Gardens (Main)', rooms:{
+      ss_single:{ name:'Semi-Suite Single', room:{w:221.1,d:88,h:96}, layout:'standard', beds:1 },
+      ss_double:{ name:'Semi-Suite Double', room:{w:221.1,d:155,h:96}, layout:'standard', beds:2 },
+      ss_triple:{ name:'Semi-Suite Triple', room:{w:298,d:152.6,h:96}, layout:'standard', beds:3 }
+    }},
+    mudge:{ name:'Mudge House', rooms:{
+      trad_single:{ name:'Traditional Single', room:{w:95.5,d:174,h:96}, layout:'standard', beds:1, closets:0 },
+      trad_double:{ name:'Traditional Double', room:{w:182,d:187,h:96}, layout:'standard', beds:2 },
+      trad_triple:{ name:'Traditional Triple', room:{w:201,d:152,h:96}, layout:'standard', beds:3 },
+      ss_single:{ name:'Semi-Suite Single', room:{w:151.5,d:123,h:96}, layout:'standard', beds:1 },
+      ss_double:{ name:'Semi-Suite Double', room:{w:152.75,d:205,h:96}, layout:'standard', beds:2 },
+      ss_quad:{ name:'Semi-Suite Quad', room:{w:289.75,d:210,h:96}, layout:'standard', beds:4 }
+    }},
+    donner:{ name:'Donner House', rooms:{
+      trad_single:{ name:'Traditional Single', room:{w:94,d:191,h:96}, layout:'standard', beds:1, closets:0 },
+      trad_double:{ name:'Traditional Double', room:{w:159.1,d:191.1,h:96}, layout:'standard', beds:2 },
+      trad_triple:{ name:'Traditional Triple', room:{w:208.4,d:186.1,h:96}, layout:'standard', beds:3 }
+    }},
+    stever:{ name:'Stever House', rooms:{
+      trad_double:{ name:'Traditional Double', room:{w:126.5,d:193,h:96}, layout:'standard', beds:2 }
     }}
   }}
 };

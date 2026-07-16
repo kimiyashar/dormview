@@ -81,6 +81,13 @@ Deployed:
   (9749e08) and `v2` (dd566e2) mark each version. Pushed with the `gh` CLI (authenticated
   as kimiyashar), so `git push` future changes normally.
 
+- Five CMU buildings (2026-07-14): E-Tower plus Morewood Gardens (Main), Mudge House,
+  Donner House, and Stever House. 16 room types total, every dimension taken from the
+  official per-room floor plan PDFs on cmu.edu/housing (rectangles; only the E-Tower 323
+  triple has polygon geometry so far). New generic layouts: layoutTripleRect (side beds +
+  window bed), layoutQuad (Mudge semi-suite quad), and layoutSingle grows a freestanding
+  wardrobe when closets:0 (narrow Donner/Mudge singles that cannot fit closet doors).
+
 Blocked / not done:
 - Next design work (not started): the UI to make the app configurable for anyone in
   E-Tower, then all of CMU, then any college. See `docs/ROADMAP.md`.
