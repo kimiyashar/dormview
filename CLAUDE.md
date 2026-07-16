@@ -181,6 +181,16 @@ Every placed object is a `THREE.Group`/`Mesh` pushed to `items[]` with `userData
 
 ## 9. How to add a new room / building / school
 
+Finding CMU floor plans (Kimi's flow, follow it exactly):
+1. Start at https://www.cmu.edu/housing/our-communities/residences/index.html (the
+   Residence Halls list; every white card links to a hall page).
+2. On the hall page: the "at a Glance" box lists room types; expand "Floor Plans".
+3. Open ONLY the per-room-type PDFs ("Semi-Suite Single (pdf)" etc.). Skip the
+   Ground/First/Second/Third Floor PDFs; those are whole-building floors.
+   URL pattern: .../residences/floor-plans/<bldg-dir>/<bldg>_<room-type>_floor-plan.pdf
+4. Build the room to follow the plan: printed dimensions AND the true wall outline
+   (polygon `shape` for L-shaped semi-suites with bath/hall), door, window, closets.
+
 1. Add an entry to `var SCHOOLS` at the bottom of the script:
    ```js
    SCHOOLS.cmu.buildings.etower.rooms.trad_single = {
