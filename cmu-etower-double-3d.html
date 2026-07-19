@@ -653,6 +653,9 @@ function buildRoom(){
   var skyMat=new THREE.MeshBasicMaterial({color:0x9ad3f0});                          // unlit bright sky, always visible
   (S && S.windows ? S.windows : (ROOM_WINDOWS||[0])).forEach(function(wcx){
     var wg=new THREE.Group();
+    // a window entry may be a plain x offset (front wall) or {x,z,ry} for an
+    // angled wall segment such as the Mudge quad's curved bay
+    var wobj=(typeof wcx==='object');
     var frame=box(wW+7, wH+7, 3, frameMat); frame.position.set(0, cy, D/2-1.6);
     frame.userData.hoverInfo={name:'Window', dims:dimLine(wW,wH,2), hint:'Sill ~28" up &middot; E-Tower window'};
     wg.add(frame);
@@ -668,12 +671,18 @@ function buildRoom(){
     radG.position.set(0, 0, D/2 - 4.5);
     radG.userData.hoverInfo={name:'Radiator (heat)', dims:dimLine(wW-2,16,7), hint:'E-Tower heat. No A/C, so plan a fan.'};
     wg.add(radG);
-    wg.position.x=wcx;
+    if(wobj){
+      wg.rotation.y=wcx.ry||0;
+      wg.position.set(wcx.x - Math.sin(wcx.ry||0)*(D/2), 0, wcx.z - Math.cos(wcx.ry||0)*(D/2));
+    } else {
+      wg.position.x=wcx;
+    }
     roomGroup.add(wg);
   });
-  /* PRIVATE BATHROOM block for polygon rooms: tiled floor + walls with a door gap */
-  if(S && S.bath){
-    var bt=S.bath, bw=bt.x2-bt.x1, bd=bt.z2-bt.z1, bcx=(bt.x1+bt.x2)/2, bcz=(bt.z1+bt.z2)/2;
+  /* PRIVATE BATHROOM block (polygon rooms via shape.bath, rectangles via cfg.bath) */
+  var bathCfg=(S && S.bath) ? S.bath : ROOM_BATH;
+  if(bathCfg){
+    var bt=bathCfg, bw=bt.x2-bt.x1, bd=bt.z2-bt.z1, bcx=(bt.x1+bt.x2)/2, bcz=(bt.z1+bt.z2)/2;
     var tileMat=new THREE.MeshStandardMaterial({color:0xf4f2ea, roughness:0.35});
     var bf=box(bw, 1.5, bd, tileMat); bf.position.set(bcx, 0.75, bcz);
     bf.userData.hoverInfo={name:'Private bathroom', dims:dimLine(bw,0,bd), hint:'Semi-suite bath: toilet, sink, shower'};
@@ -1131,6 +1140,7 @@ var items = [];
 function kindFromId(id){
   if(/^bedL/.test(id)) return 'bed_L'; if(/^bedR/.test(id)) return 'bed_R';
   if(/^bedM/.test(id)) return 'bed_L';   // triple's bunk-top / third bed
+  if(/^bedQ/.test(id)) return 'bed_R';   // quad's fourth bed
   if(/^dresser/.test(id)) return 'dresser'; if(/^desk/.test(id)) return 'desk'; if(/^chair/.test(id)) return 'chair';
   if(/^hutch/.test(id)) return 'hutch'; if(/^pedestal/.test(id)) return 'pedestal';
   if(/^closet/.test(id)) return 'closet';
@@ -1287,10 +1297,19 @@ var ROOM_BEDS=2;      // beds in the current room type (1 single, 2 double, 3 tr
 var ROOM_FURN=null;   // optional per-room furniture plan (from the CMU floor plan PDF)
 var ROOM_DOORX=0;     // door offset along the back wall for rectangular rooms
 var ROOM_WINDOWS=null;// window center offsets for rectangular rooms (default centered)
-function layoutPlan(list, bedTop){   // place furniture exactly as drawn on the floor plan
+var ROOM_BATH=null;   // optional in-room bathroom block for rectangular rooms
+function layoutPlan(list, bedTop, bunk){   // place furniture exactly as drawn on the floor plan
   BED_TOP=bedTop;
+  var firstBed=null, bedCount=0;
   list.forEach(function(it){
-    if(it.k==='bed'){ addItem(it.id, makeBed(it.side||'L', bedTop), it.x, it.z, it.ry||0); }
+    if(it.k==='bed'){
+      bedCount++;
+      var bx=it.x, bz=it.z, bry=it.ry||0, by=it.y||0;
+      if(bunk && bedCount===2 && firstBed){ bx=firstBed.x; bz=firstBed.z; bry=firstBed.ry||0; by=46; }
+      var o=addItem(it.id, makeBed(it.side||'L', bedTop), bx, bz, bry);
+      o.position.y=by;
+      if(bedCount===1) firstBed=it;
+    }
     else if(it.k==='desk'){ addDeskSet(it.id, it.x, it.z, it.ry||0); }
     else if(it.k==='chair'){ addItem(it.id, makeChair(), it.x, it.z, it.ry||0); }
     else if(it.k==='dresser'){ addItem(it.id, makeDresser(), it.x, it.z, it.ry||0); }
@@ -1303,7 +1322,7 @@ function applyLayout(name){
   currentLayout=name; deselect(); clearItems();
   // singles and triples have their own arrangements; Standard/Raised drive the
   // free bed height, Bunked/Open fall back to the base arrangement for them
-  if(ROOM_FURN) layoutPlan(ROOM_FURN, name==='raised'?36:20);
+  if(ROOM_FURN) layoutPlan(ROOM_FURN, name==='raised'?36:20, name==='bunk');
   else if(ROOM_BEDS===1) layoutSingle(name==='raised'?36:20);
   else if(ROOM_BEDS===4) layoutQuad(name==='raised'?36:20);
   else if(ROOM_BEDS===3){
@@ -1334,7 +1353,12 @@ function applyDecor(){
   if(!decor['curtain']){                       // one curtain set per window
     var g=new THREE.Group();
     (ROOM_SHAPE && ROOM_SHAPE.windows ? ROOM_SHAPE.windows : (ROOM_WINDOWS||[0])).forEach(function(cx){
-      var c=makeCurtains(); c.position.x=cx; g.add(c);
+      var c=makeCurtains();
+      if(typeof cx==='object'){
+        c.rotation.y=cx.ry||0;
+        c.position.set(cx.x - Math.sin(cx.ry||0)*(ROOM.d/2), 0, cx.z - Math.cos(cx.ry||0)*(ROOM.d/2));
+      } else { c.position.x=cx; }
+      g.add(c);
     });
     decorAdd('curtain', g);
   }
@@ -2128,9 +2152,9 @@ function loadState(s){
   // per-room extras (closet count etc.) come from the registry
   try{ var rk=CURRENT_ROOM_KEY.split('/'), rc=SCHOOLS[rk[0]].buildings[rk[1]].rooms[rk[2]];
     if(rc){ ROOM_CLOSETS=(typeof rc.closets==='number')?rc.closets:2; ROOM_SHAPE=rc.shape||null;
-      ROOM_FURN=rc.furniture||null; ROOM_DOORX=rc.doorX||0; ROOM_WINDOWS=rc.windows||null;
+      ROOM_FURN=rc.furniture||null; ROOM_DOORX=rc.doorX||0; ROOM_WINDOWS=rc.windows||null; ROOM_BATH=rc.bath||null;
       if(typeof s.beds!=='number') ROOM_BEDS=rc.beds||2; }
-  }catch(e){ ROOM_CLOSETS=2; ROOM_SHAPE=null; ROOM_FURN=null; ROOM_DOORX=0; ROOM_WINDOWS=null; }
+  }catch(e){ ROOM_CLOSETS=2; ROOM_SHAPE=null; ROOM_FURN=null; ROOM_DOORX=0; ROOM_WINDOWS=null; ROOM_BATH=null; }
   currentLayout=s.layout||currentLayout;
   if(s.colors){
     if(s.colors.wall && document.getElementById('c_wall')) document.getElementById('c_wall').value=s.colors.wall;
@@ -2187,7 +2211,7 @@ var SCHOOLS = {
   cmu:{ name:'Carnegie Mellon University', buildings:{
     etower:{ name:'Morewood Gardens (E-Tower)', rooms:{
       trad_double:{ name:'Traditional Double', room:{w:151.5,d:166,h:96}, layout:'standard', beds:2 },
-      trad_single:{ name:'Traditional Single', room:{w:151.5,d:110,h:96}, layout:'standard', beds:1, closets:1 },
+      trad_single:{ name:'Traditional Single', room:{w:151.5,d:110,h:96}, layout:'standard', beds:1, closets:1, doorX:30 },
       semi_triple:{ name:'Semi-Suite Triple', room:{w:306,d:188,h:96}, layout:'standard', beds:3, closets:0,
         // outline traced from the measured room 323 scan: 25'6" window wall, 13'2" left
         // depth, shallower 8'0" right section, private bath block, entry corridor
@@ -2200,25 +2224,194 @@ var SCHOOLS = {
         } }
     }},
     morewood:{ name:'Morewood Gardens (Main)', rooms:{
-      ss_single:{ name:'Semi-Suite Single', room:{w:221.1,d:88,h:96}, layout:'standard', beds:1 },
-      ss_double:{ name:'Semi-Suite Double', room:{w:221.1,d:155,h:96}, layout:'standard', beds:2 },
-      ss_triple:{ name:'Semi-Suite Triple', room:{w:298,d:152.6,h:96}, layout:'standard', beds:3 }
+      // traced from the official per-room floor plan PDFs (window wall = front)
+      ss_single:{ name:'Semi-Suite Single', room:{w:88,d:221.1,h:96}, layout:'standard', beds:1, closets:0,
+        doorX:23, windows:[15],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:23.5, z:64.55, ry:Math.PI},
+          {k:'desk', id:'L', x:-25, z:90, ry:Math.PI},
+          {k:'chair', id:'chairL', x:-25, z:66, ry:0},
+          {k:'closet', id:'closetL', x:-31.75, z:10, ry:Math.PI/2},
+          {k:'dresser', id:'dresserL', x:-25, z:-101, ry:0}
+        ] },
+      ss_double:{ name:'Semi-Suite Double', room:{w:155,d:221.1,h:96}, layout:'standard', beds:2, closets:0,
+        doorX:30, windows:[-40,30], bath:{x1:-77.5,z1:-110,x2:-10,z2:-50},
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-57, z:60, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:5, z:60, ry:Math.PI},
+          {k:'desk', id:'L', x:45, z:80, ry:Math.PI},
+          {k:'chair', id:'chairL', x:45, z:56, ry:0},
+          {k:'desk', id:'R', x:65.5, z:10, ry:Math.PI/2},
+          {k:'chair', id:'chairR', x:50.5, z:10, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserL', x:-68.5, z:5, ry:Math.PI/2},
+          {k:'dresser', id:'dresserR', x:30, z:-30, ry:0}
+        ] },
+      ss_triple:{ name:'Semi-Suite Triple', room:{w:298,d:187.3,h:96}, layout:'standard', beds:3, closets:0,
+        shape:{
+          outline:[[-149,93.65],[149,93.65],[149,-59],[140,-59],[140,-93.65],[105,-93.65],[105,-59],[-149,-59]],
+          windows:[-60,40], door:{x:122.5}, light:[0,20]
+        },
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-115, z:47.65, ry:Math.PI},
+          {k:'bed', id:'bedM', side:'L', x:0, z:47.65, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:100, z:47.65, ry:Math.PI},
+          {k:'desk', id:'L', x:-60, z:-46, ry:0},
+          {k:'chair', id:'chairL', x:-60, z:-22, ry:Math.PI},
+          {k:'desk', id:'M', x:30, z:-46, ry:0},
+          {k:'chair', id:'chairM', x:30, z:-22, ry:Math.PI},
+          {k:'desk', id:'R', x:137, z:-20, ry:Math.PI/2},
+          {k:'chair', id:'chairR', x:122, z:-20, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserL', x:-110, z:-50, ry:0},
+          {k:'dresser', id:'dresserM', x:90, z:-50, ry:0},
+          {k:'dresser', id:'dresserR', x:140, z:30, ry:-Math.PI/2}
+        ] }
     }},
     mudge:{ name:'Mudge House', rooms:{
-      trad_single:{ name:'Traditional Single', room:{w:95.5,d:174,h:96}, layout:'standard', beds:1, closets:0 },
-      trad_double:{ name:'Traditional Double', room:{w:182,d:187,h:96}, layout:'standard', beds:2 },
-      trad_triple:{ name:'Traditional Triple', room:{w:201,d:152,h:96}, layout:'standard', beds:3 },
-      ss_single:{ name:'Semi-Suite Single', room:{w:151.5,d:123,h:96}, layout:'standard', beds:1 },
-      ss_double:{ name:'Semi-Suite Double', room:{w:152.75,d:205,h:96}, layout:'standard', beds:2 },
-      ss_quad:{ name:'Semi-Suite Quad', room:{w:289.75,d:210,h:96}, layout:'standard', beds:4 }
+      // every room traced from its official floor plan PDF
+      trad_single:{ name:'Traditional Single', room:{w:95.5,d:174,h:96}, layout:'standard', beds:1, closets:0,
+        doorX:25, windows:[-5],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-27.25, z:41, ry:Math.PI},
+          {k:'desk', id:'L', x:-35.75, z:-30, ry:-Math.PI/2},
+          {k:'chair', id:'chairL', x:-20, z:-30, ry:Math.PI/2},
+          {k:'dresser', id:'dresserL', x:39.75, z:20, ry:-Math.PI/2},
+          {k:'closet', id:'closetL', x:-23.75, z:-75, ry:0}
+        ] },
+      trad_double:{ name:'Traditional Double', room:{w:182,d:187,h:96}, layout:'standard', beds:2, closets:2,
+        doorX:0, windows:[-30],
+        furniture:[
+          {k:'desk', id:'L', x:-55, z:78, ry:Math.PI},
+          {k:'chair', id:'chairL', x:-55, z:54, ry:0},
+          {k:'bed', id:'bedL', side:'L', x:-20, z:40, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:70.5, z:40, ry:Math.PI},
+          {k:'desk', id:'R', x:-79, z:-20, ry:-Math.PI/2},
+          {k:'chair', id:'chairR', x:-64, z:-20, ry:Math.PI/2},
+          {k:'dresser', id:'dresserL', x:82, z:-5, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserR', x:82, z:-40, ry:-Math.PI/2}
+        ] },
+      trad_triple:{ name:'Traditional Triple', room:{w:201,d:152,h:96}, layout:'standard', beds:3, closets:0,
+        doorX:55, windows:[-50,30],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-80, z:30, ry:Math.PI},
+          {k:'bed', id:'bedM', side:'L', x:-80, z:30, ry:Math.PI, y:46},
+          {k:'bed', id:'bedR', side:'R', x:80, z:30, ry:Math.PI},
+          {k:'desk', id:'L', x:-80, z:-22, ry:Math.PI},
+          {k:'chair', id:'chairL', x:-80, z:-41, ry:0},
+          {k:'desk', id:'M', x:8, z:-63, ry:0},
+          {k:'chair', id:'chairM', x:8, z:-40, ry:Math.PI},
+          {k:'desk', id:'R', x:88.5, z:-35, ry:Math.PI/2},
+          {k:'chair', id:'chairR', x:73.5, z:-35, ry:-Math.PI/2},
+          {k:'closet', id:'closetA', x:-40, z:-64, ry:0},
+          {k:'dresser', id:'dresserL', x:-30, z:54, ry:0},
+          {k:'dresser', id:'dresserM', x:40, z:-20, ry:0},
+          {k:'dresser', id:'dresserR', x:-40, z:-20, ry:0}
+        ] },
+      ss_single:{ name:'Semi-Suite Single', room:{w:151.5,d:123,h:96}, layout:'standard', beds:1, closets:0,
+        doorX:40, windows:[-20],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-55.25, z:15.5, ry:Math.PI},
+          {k:'desk', id:'L', x:40, z:48.5, ry:Math.PI},
+          {k:'chair', id:'chairL', x:40, z:25, ry:0},
+          {k:'dresser', id:'dresserL', x:66.75, z:-5, ry:-Math.PI/2},
+          {k:'closet', id:'closetL', x:-45, z:-49.5, ry:0},
+          {k:'dresser', id:'dresserR', x:-5, z:-52.5, ry:0}
+        ] },
+      ss_double:{ name:'Semi-Suite Double', room:{w:152.75,d:205,h:96}, layout:'standard', beds:2, closets:0,
+        doorX:-35, windows:[-20,45],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-56, z:60, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:56.4, z:5, ry:Math.PI},
+          {k:'desk', id:'L', x:-64.4, z:-15, ry:-Math.PI/2},
+          {k:'chair', id:'chairL', x:-49, z:-15, ry:Math.PI/2},
+          {k:'desk', id:'R', x:64.4, z:75, ry:Math.PI/2},
+          {k:'chair', id:'chairR', x:49.4, z:75, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserL', x:67.4, z:-60, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserR', x:-67.4, z:-60, ry:Math.PI/2},
+          {k:'closet', id:'closetA', x:12, z:-90.5, ry:0},
+          {k:'closet', id:'closetB', x:52, z:-90.5, ry:0}
+        ] },
+      ss_quad:{ name:'Semi-Suite Quad', room:{w:289.8,d:210,h:96}, layout:'standard', beds:4, closets:0,
+        // the A-tower round room: curved window bay traced as facets
+        shape:{
+          outline:[[-144.9,-105],[144.9,-105],[144.9,55],[100,88],[35,103],[-35,103],[-100,88],[-144.9,55]],
+          windows:[{x:-67.5,z:95.5,ry:-0.22},{x:0,z:103,ry:0},{x:67.5,z:95.5,ry:0.22}],
+          door:{x:120}, light:[0,-20]
+        },
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-124.4, z:-60, ry:0},
+          {k:'bed', id:'bedM', side:'R', x:10, z:-60, ry:0},
+          {k:'bed', id:'bedR', side:'L', x:-124.4, z:10, ry:0},
+          {k:'bed', id:'bedQ', side:'R', x:60, z:-10, ry:0},
+          {k:'desk', id:'L', x:0, z:80, ry:Math.PI},
+          {k:'chair', id:'chairL', x:0, z:56, ry:0},
+          {k:'desk', id:'M', x:-60, z:68, ry:2.92},
+          {k:'chair', id:'chairM', x:-55, z:45, ry:0},
+          {k:'desk', id:'R', x:60, z:68, ry:-2.92},
+          {k:'chair', id:'chairR', x:55, z:45, ry:0},
+          {k:'dresser', id:'dresserL', x:-60, z:-96, ry:0},
+          {k:'dresser', id:'dresserM', x:45, z:-96, ry:0},
+          {k:'dresser', id:'dresserR', x:80, z:-96, ry:0},
+          {k:'dresser', id:'dresserQ', x:136, z:-40, ry:-Math.PI/2}
+        ] }
     }},
     donner:{ name:'Donner House', rooms:{
-      trad_single:{ name:'Traditional Single', room:{w:94,d:191,h:96}, layout:'standard', beds:1, closets:0 },
-      trad_double:{ name:'Traditional Double', room:{w:159.1,d:191.1,h:96}, layout:'standard', beds:2 },
-      trad_triple:{ name:'Traditional Triple', room:{w:208.4,d:186.1,h:96}, layout:'standard', beds:3 }
+      trad_single:{ name:'Traditional Single', room:{w:94,d:191,h:96}, layout:'standard', beds:1, closets:0,
+        doorX:-25, windows:[10],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-26.5, z:49.5, ry:Math.PI},
+          {k:'desk', id:'L', x:35, z:55, ry:Math.PI/2},
+          {k:'chair', id:'chairL', x:20, z:55, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserL', x:-38, z:-5, ry:Math.PI/2},
+          {k:'closet', id:'closetL', x:20, z:-83.5, ry:0}
+        ] },
+      trad_double:{ name:'Traditional Double', room:{w:159.1,d:191.1,h:96}, layout:'standard', beds:2, closets:0,
+        doorX:0, windows:[-40,40],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-59, z:49.55, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:59, z:49.55, ry:Math.PI},
+          {k:'desk', id:'L', x:0, z:80, ry:Math.PI},
+          {k:'chair', id:'chairL', x:0, z:56, ry:0},
+          {k:'desk', id:'R', x:-67.5, z:-10, ry:-Math.PI/2},
+          {k:'chair', id:'chairR', x:-52.5, z:-10, ry:Math.PI/2},
+          {k:'dresser', id:'dresserL', x:71.55, z:-15, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserR', x:-40, z:-80, ry:0},
+          {k:'closet', id:'closetL', x:40, z:-83.55, ry:0}
+        ] },
+      trad_triple:{ name:'Traditional Triple', room:{w:208.4,d:186.1,h:96}, layout:'standard', beds:3, closets:0,
+        // traced from the Donner TT floor plan + Matterport tour: bunked pair on the
+        // left, third bed on the right, desks under the windows, closets by the door
+        doorX:55, windows:[-52,52],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-83.7, z:47, ry:Math.PI},
+          {k:'bed', id:'bedM', side:'L', x:-83.7, z:47, ry:Math.PI, y:46},
+          {k:'bed', id:'bedR', side:'R', x:83.7, z:47, ry:Math.PI},
+          {k:'desk', id:'L', x:-83.5, z:-5, ry:Math.PI},
+          {k:'chair', id:'chairL', x:-83.5, z:-24, ry:0},
+          {k:'desk', id:'M', x:-92.2, z:-55, ry:-Math.PI/2},
+          {k:'chair', id:'chairM', x:-77, z:-55, ry:Math.PI/2},
+          {k:'desk', id:'R', x:30, z:72, ry:Math.PI},
+          {k:'chair', id:'chairR', x:30, z:48, ry:0},
+          {k:'dresser', id:'dresserR', x:95.2, z:-10, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserM', x:-10, z:20, ry:0},
+          {k:'dresser', id:'dresserL', x:-52, z:-45, ry:0},
+          {k:'closet', id:'closetA', x:-52, z:-81, ry:0},
+          {k:'closet', id:'closetB', x:0, z:-81, ry:0}
+        ] }
     }},
     stever:{ name:'Stever House', rooms:{
-      trad_double:{ name:'Traditional Double', room:{w:126.5,d:193,h:96}, layout:'standard', beds:2 }
+      trad_double:{ name:'Traditional Double', room:{w:126.5,d:193,h:96}, layout:'standard', beds:2, closets:0,
+        doorX:-25, windows:[0],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-42.75, z:50.5, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:-1, z:50.5, ry:Math.PI},
+          {k:'desk', id:'L', x:-51.25, z:-10, ry:-Math.PI/2},
+          {k:'chair', id:'chairL', x:-36, z:-10, ry:Math.PI/2},
+          {k:'desk', id:'R', x:51, z:-5, ry:Math.PI/2},
+          {k:'chair', id:'chairR', x:36, z:-5, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserL', x:54.25, z:60, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserR', x:54.25, z:28, ry:-Math.PI/2},
+          {k:'closet', id:'closetL', x:35, z:-84.5, ry:0}
+        ] }
     }},
     boss:{ name:'Boss House', rooms:{
       // furniture positions traced from the official floor plan PDFs; the shared
@@ -2276,7 +2469,7 @@ function applyRoomSelection(uKey,bKey,rKey,cfg){
   var c=document.getElementById('tbCrumb'); if(c) c.innerHTML=S.name+' · '+B.name;
   if(sameRoom) return;                       // keep the user's current / restored arrangement
   ROOM_BEDS=cfg.beds||2; ROOM_CLOSETS=(typeof cfg.closets==='number')?cfg.closets:2; ROOM_SHAPE=cfg.shape||null;
-  ROOM_FURN=cfg.furniture||null; ROOM_DOORX=cfg.doorX||0; ROOM_WINDOWS=cfg.windows||null;
+  ROOM_FURN=cfg.furniture||null; ROOM_DOORX=cfg.doorX||0; ROOM_WINDOWS=cfg.windows||null; ROOM_BATH=cfg.bath||null;
   if(cfg.room){ ROOM.w=cfg.room.w; ROOM.d=cfg.room.d; ROOM.h=cfg.room.h;
     if(document.getElementById('rW'))document.getElementById('rW').value=ROOM.w;
     if(document.getElementById('rD'))document.getElementById('rD').value=ROOM.d;
