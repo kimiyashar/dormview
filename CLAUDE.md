@@ -184,7 +184,10 @@ Every placed object is a `THREE.Group`/`Mesh` pushed to `items[]` with `userData
 Finding CMU floor plans (Kimi's flow, follow it exactly):
 1. Start at https://www.cmu.edu/housing/our-communities/residences/index.html (the
    Residence Halls list; every white card links to a hall page).
-2. On the hall page: the "at a Glance" box lists room types; expand "Floor Plans".
+2. On the hall page: the "at a Glance" box lists room types (styling varies by page);
+   expand "Floor Plans". Also open "Room Tours" -> Start Tour -> the "Floorplan View"
+   button at the bottom (backwards-L icon) for the Matterport top-down dollhouse with
+   the real furniture arrangement; its ruler tool measures anything the PDFs miss.
 3. Open ONLY the per-room-type PDFs ("Semi-Suite Single (pdf)" etc.). Skip the
    Ground/First/Second/Third Floor PDFs; those are whole-building floors.
    URL pattern: .../residences/floor-plans/<bldg-dir>/<bldg>_<room-type>_floor-plan.pdf

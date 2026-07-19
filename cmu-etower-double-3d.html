@@ -628,7 +628,8 @@ function buildRoom(){
   var lever=box(4.6,1.3,1.4,MAT.brass); lever.position.set(dW/2-5, 38, -D/2+2.4); doorG.add(lever);
   doorG.traverse(function(o){ if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
   doorG.userData.hoverInfo={name:'Door', dims:dimLine(dW,dH,1.75), hint:'Steel-blue entry door, full-length mirror inside'};
-  if(S && S.door) doorG.position.x=S.door.x;   // polygon rooms: door sits at the corridor end
+  if(S && S.door) doorG.position.x=S.door.x;      // polygon rooms: door sits at the corridor end
+  else if(ROOM_DOORX) doorG.position.x=ROOM_DOORX; // rectangular rooms with an off-center door
   roomGroup.add(doorG);
 
   /* two CLOSET DOORS flanking the entry, flush on the back wall (recessed, no volume) */
@@ -650,7 +651,7 @@ function buildRoom(){
   var wW=64, wH=52, sill=28, cy=sill+wH/2;
   var frameMat=new THREE.MeshStandardMaterial({color:0x5a4632, roughness:0.55});   // dark frame: contrasts any wall colour
   var skyMat=new THREE.MeshBasicMaterial({color:0x9ad3f0});                          // unlit bright sky, always visible
-  (S && S.windows ? S.windows : [0]).forEach(function(wcx){
+  (S && S.windows ? S.windows : (ROOM_WINDOWS||[0])).forEach(function(wcx){
     var wg=new THREE.Group();
     var frame=box(wW+7, wH+7, 3, frameMat); frame.position.set(0, cy, D/2-1.6);
     frame.userData.hoverInfo={name:'Window', dims:dimLine(wW,wH,2), hint:'Sill ~28" up &middot; E-Tower window'};
@@ -1282,14 +1283,28 @@ function layoutOpen(){           // dressers back corners, beds mid-wall, desks 
 }
 
 var currentLayout='standard';
-var ROOM_BEDS=2;      // beds in the current room type (1 single, 2 double, 3 triple)
+var ROOM_BEDS=2;      // beds in the current room type (1 single, 2 double, 3 triple, 4 quad)
+var ROOM_FURN=null;   // optional per-room furniture plan (from the CMU floor plan PDF)
+var ROOM_DOORX=0;     // door offset along the back wall for rectangular rooms
+var ROOM_WINDOWS=null;// window center offsets for rectangular rooms (default centered)
+function layoutPlan(list, bedTop){   // place furniture exactly as drawn on the floor plan
+  BED_TOP=bedTop;
+  list.forEach(function(it){
+    if(it.k==='bed'){ addItem(it.id, makeBed(it.side||'L', bedTop), it.x, it.z, it.ry||0); }
+    else if(it.k==='desk'){ addDeskSet(it.id, it.x, it.z, it.ry||0); }
+    else if(it.k==='chair'){ addItem(it.id, makeChair(), it.x, it.z, it.ry||0); }
+    else if(it.k==='dresser'){ addItem(it.id, makeDresser(), it.x, it.z, it.ry||0); }
+    else if(it.k==='closet'){ addItem(it.id, makeCloset(), it.x, it.z, it.ry||0); }
+  });
+}
 var ROOM_CLOSETS=2;   // built-in closet doors (the single has 1)
 var ROOM_SHAPE=null;  // polygon outline config for non-rectangular rooms (the triple)
 function applyLayout(name){
   currentLayout=name; deselect(); clearItems();
   // singles and triples have their own arrangements; Standard/Raised drive the
   // free bed height, Bunked/Open fall back to the base arrangement for them
-  if(ROOM_BEDS===1) layoutSingle(name==='raised'?36:20);
+  if(ROOM_FURN) layoutPlan(ROOM_FURN, name==='raised'?36:20);
+  else if(ROOM_BEDS===1) layoutSingle(name==='raised'?36:20);
   else if(ROOM_BEDS===4) layoutQuad(name==='raised'?36:20);
   else if(ROOM_BEDS===3){
     if(ROOM_SHAPE) layoutTriple(name==='raised'?36:20, name==='bunk');
@@ -1318,7 +1333,7 @@ function chk(id){ var e=document.getElementById(id); return e?e.checked:false; }
 function applyDecor(){
   if(!decor['curtain']){                       // one curtain set per window
     var g=new THREE.Group();
-    (ROOM_SHAPE && ROOM_SHAPE.windows ? ROOM_SHAPE.windows : [0]).forEach(function(cx){
+    (ROOM_SHAPE && ROOM_SHAPE.windows ? ROOM_SHAPE.windows : (ROOM_WINDOWS||[0])).forEach(function(cx){
       var c=makeCurtains(); c.position.x=cx; g.add(c);
     });
     decorAdd('curtain', g);
@@ -2113,8 +2128,9 @@ function loadState(s){
   // per-room extras (closet count etc.) come from the registry
   try{ var rk=CURRENT_ROOM_KEY.split('/'), rc=SCHOOLS[rk[0]].buildings[rk[1]].rooms[rk[2]];
     if(rc){ ROOM_CLOSETS=(typeof rc.closets==='number')?rc.closets:2; ROOM_SHAPE=rc.shape||null;
+      ROOM_FURN=rc.furniture||null; ROOM_DOORX=rc.doorX||0; ROOM_WINDOWS=rc.windows||null;
       if(typeof s.beds!=='number') ROOM_BEDS=rc.beds||2; }
-  }catch(e){ ROOM_CLOSETS=2; ROOM_SHAPE=null; }
+  }catch(e){ ROOM_CLOSETS=2; ROOM_SHAPE=null; ROOM_FURN=null; ROOM_DOORX=0; ROOM_WINDOWS=null; }
   currentLayout=s.layout||currentLayout;
   if(s.colors){
     if(s.colors.wall && document.getElementById('c_wall')) document.getElementById('c_wall').value=s.colors.wall;
@@ -2203,6 +2219,30 @@ var SCHOOLS = {
     }},
     stever:{ name:'Stever House', rooms:{
       trad_double:{ name:'Traditional Double', room:{w:126.5,d:193,h:96}, layout:'standard', beds:2 }
+    }},
+    boss:{ name:'Boss House', rooms:{
+      // furniture positions traced from the official floor plan PDFs; the shared
+      // semi-private bath sits outside the room across the suite hall
+      ss_single:{ name:'Semi-Suite Single', room:{w:125.75,d:101.4,h:96}, layout:'standard', beds:1, closets:0,
+        doorX:38, windows:[-10],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-43.4, z:0, ry:Math.PI},
+          {k:'desk', id:'L', x:22, z:36, ry:Math.PI},
+          {k:'chair', id:'chairL', x:22, z:12, ry:0},
+          {k:'dresser', id:'dresserL', x:45, z:-41.7, ry:0}
+        ] },
+      ss_double:{ name:'Semi-Suite Double', room:{w:144.75,d:169.4,h:96}, layout:'standard', beds:2, closets:0,
+        doorX:-50, windows:[-49],
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-48, z:39, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:49, z:39, ry:Math.PI},
+          {k:'desk', id:'L', x:-47, z:-70, ry:0},
+          {k:'chair', id:'chairL', x:-47, z:-46, ry:Math.PI},
+          {k:'desk', id:'R', x:0, z:-70, ry:0},
+          {k:'chair', id:'chairR', x:0, z:-46, ry:Math.PI},
+          {k:'dresser', id:'dresserL', x:63, z:-58, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserR', x:63, z:-25, ry:-Math.PI/2}
+        ] }
     }}
   }}
 };
@@ -2236,6 +2276,7 @@ function applyRoomSelection(uKey,bKey,rKey,cfg){
   var c=document.getElementById('tbCrumb'); if(c) c.innerHTML=S.name+' · '+B.name;
   if(sameRoom) return;                       // keep the user's current / restored arrangement
   ROOM_BEDS=cfg.beds||2; ROOM_CLOSETS=(typeof cfg.closets==='number')?cfg.closets:2; ROOM_SHAPE=cfg.shape||null;
+  ROOM_FURN=cfg.furniture||null; ROOM_DOORX=cfg.doorX||0; ROOM_WINDOWS=cfg.windows||null;
   if(cfg.room){ ROOM.w=cfg.room.w; ROOM.d=cfg.room.d; ROOM.h=cfg.room.h;
     if(document.getElementById('rW'))document.getElementById('rW').value=ROOM.w;
     if(document.getElementById('rD'))document.getElementById('rD').value=ROOM.d;
