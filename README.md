@@ -1,5 +1,8 @@
 # DormView
 
+> **New contributor? Start with [`START-HERE.md`](START-HERE.md).** It explains the project,
+> repository map, room-accuracy workflow, collaboration rules, and Hermes setup.
+
 A 3D interactive dorm-room planner in a single HTML file. Pick your school, building, and
 room type, then get an accurate to-scale 3D model you can furnish, recolor, resize, and save
 before move-in. First room shipped: Carnegie Mellon University, Morewood Gardens (E-Tower),
