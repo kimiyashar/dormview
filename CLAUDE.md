@@ -1,8 +1,10 @@
 # CLAUDE.md - DormView (working context for Claude Code)
 
-Read this first. It is the single source of truth for picking the project back up.
-Companion docs live in `docs/`: `ARCHITECTURE.md` (code map), `ROADMAP.md` (vision and
-phases), `TESTING.md` (how the test harness works), `DEPLOYMENT.md` (Vercel/GitHub status).
+Read this first. It is the working source of truth for picking the project back up.
+Before substantial work, also read `HANDOVER.md` for the complete product vision, current
+room catalog, data-sourcing workflow, subsystem map, and scaling plan. Companion docs live
+in `docs/`: `ARCHITECTURE.md` (code map), `ROADMAP.md` (vision and phases), `TESTING.md`
+(how the test harness works), and `DEPLOYMENT.md` (Vercel/GitHub status).
 
 ---
 
