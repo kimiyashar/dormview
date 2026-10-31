@@ -255,20 +255,20 @@
   </div>
 
   <div class="sect" data-key="colors">
-    <h2>Finishes &amp; colors <span class="chev">&#9662;</span></h2>
+    <h2>Materials &amp; colors <span class="chev">&#9662;</span></h2>
     <div class="body">
-      <div class="note"><b>To recolor:</b> click a wall, the floor, a bed, the rug, or the curtains in the room, then use the <b>Color</b> chip that appears on the toolbar.</div>
+      <div class="note"><b>To customize:</b> choose the real material here, then click a surface and use the <b>Color</b> chip. Grain, weave, and carpet texture stay visible when recolored.</div>
       <div class="swatchrow"><span>Wall finish</span>
         <select class="sel" id="wallStyle" style="width:150px">
           <option value="wood">Wood paneling</option>
-          <option value="paint" selected>Painted color</option>
+          <option value="paint" selected>Painted drywall</option>
         </select>
       </div>
       <div class="swatchrow"><span>Floor</span>
         <select class="sel" id="floorType" style="width:150px">
-          <option value="wood">Warm wood</option>
-          <option value="carpetgray">Gray carpet (real)</option>
-          <option value="carpetblue" selected>Blue carpet</option>
+          <option value="wood">Oak-look laminate</option>
+          <option value="carpetgray">Gray low-pile carpet (real)</option>
+          <option value="carpetblue" selected>Blue low-pile carpet</option>
         </select>
       </div>
       <span style="display:none">
@@ -397,8 +397,51 @@ function rnd(a,b){ return a+Math.random()*(b-a); }
 function gradientTexture(top,bottom){ var c=cvs(8,256),x=c.getContext('2d'),g=x.createLinearGradient(0,0,0,256);
   g.addColorStop(0,top); g.addColorStop(1,bottom); x.fillStyle=g; x.fillRect(0,0,8,256); return srgb(new THREE.CanvasTexture(c)); }
 
-scene.background = gradientTexture('#c8b18c', '#efe7d6');   // soft warm backdrop
-scene.fog = new THREE.Fog(0xe7dcc6, 560, 1500);            // gentle warm depth
+/* Accurate Campus Twin materials stay lightweight and self-contained. These
+   neutral detail maps are multiplied by the selected finish color, so users can
+   recolor a surface without erasing its paint grain, carpet pile, or fabric weave. */
+function paintWallTexture(){
+  var c=cvs(256,256),x=c.getContext('2d');
+  x.fillStyle='#eeeeeb'; x.fillRect(0,0,256,256);
+  for(var i=0;i<2200;i++){
+    var v=205+(i*37%42); x.fillStyle='rgba('+v+','+v+','+v+',0.18)';
+    var r=(i%5===0)?1.2:0.65, px=(i*73)%256, py=(i*151)%256;
+    x.fillRect(px,py,r,r);
+  }
+  return c;
+}
+function carpetTexture(){
+  var c=cvs(256,256),x=c.getContext('2d');
+  x.fillStyle='#c9c9c4'; x.fillRect(0,0,256,256);
+  for(var i=0;i<5200;i++){
+    var v=120+(i*29%105), a=0.13+(i%4)*0.025;
+    x.fillStyle='rgba('+v+','+v+','+v+','+a+')';
+    var px=(i*47)%256, py=(i*89)%256;
+    x.fillRect(px,py,0.8+(i%3)*0.35,1.4);
+  }
+  return c;
+}
+function veneerTexture(){
+  var c=cvs(512,256),x=c.getContext('2d');
+  x.fillStyle='#d3d0c8'; x.fillRect(0,0,512,256);
+  for(var i=0;i<34;i++){
+    var y=5+i*7.4; x.strokeStyle='rgba(65,52,39,'+(0.05+(i%4)*0.018)+')'; x.lineWidth=1;
+    x.beginPath(); x.moveTo(0,y);
+    for(var px=0;px<=512;px+=24) x.lineTo(px,y+Math.sin(px*0.032+i)*1.8);
+    x.stroke();
+  }
+  return c;
+}
+function fabricTexture(){
+  var c=cvs(128,128),x=c.getContext('2d');
+  x.fillStyle='#deddd8'; x.fillRect(0,0,128,128);
+  x.strokeStyle='rgba(70,70,66,0.12)'; x.lineWidth=1;
+  for(var i=0;i<128;i+=4){ x.beginPath(); x.moveTo(i,0); x.lineTo(i,128); x.stroke(); x.beginPath(); x.moveTo(0,i); x.lineTo(128,i); x.stroke(); }
+  return c;
+}
+
+scene.background = gradientTexture('#dce4df', '#f4f1e9');   // neutral campus daylight
+scene.fog = new THREE.Fog(0xe9ece7, 590, 1550);              // quiet atmospheric depth
 
 var camera = new THREE.PerspectiveCamera(45, 1, 1, 5000);
 
@@ -456,10 +499,10 @@ function setView(v, animate){
   })(t0);
 }
 
-/* ---------- lighting (warm, cozy, Sims-style) ------------------------------ */
-scene.add(new THREE.HemisphereLight(0xfff2da, 0x6a5236, 0.55));
-scene.add(new THREE.AmbientLight(0xfff1dc, 0.26));
-var sun = new THREE.DirectionalLight(0xffe1a8, 1.2);      // golden light through the window
+/* ---------- lighting (Accurate Campus Twin neutral daylight) ---------------- */
+scene.add(new THREE.HemisphereLight(0xf4f7f5, 0x747a72, 0.50));
+scene.add(new THREE.AmbientLight(0xffffff, 0.08));
+var sun = new THREE.DirectionalLight(0xfff4df, 0.92);     // soft neutral daylight through the window
 sun.position.set(70, 175, 235);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048,2048);
@@ -468,10 +511,10 @@ sun.shadow.camera.left=-210; sun.shadow.camera.right=210;
 sun.shadow.camera.top=250; sun.shadow.camera.bottom=-250;
 sun.shadow.bias=-0.0004; sun.shadow.radius=3.5;
 scene.add(sun);
-var fill = new THREE.DirectionalLight(0xbfd0ff, 0.16);    // subtle cool fill for shape
+var fill = new THREE.DirectionalLight(0xcbd8e2, 0.08);    // subtle cool fill for shape
 fill.position.set(-150, 90, -130);
 scene.add(fill);
-renderer.toneMappingExposure = 1.16;
+renderer.toneMappingExposure = 0.90;
 
 /* ---------- procedural wood (walls + floor), the Sims signature ------------ */
 function woodTexture(o){
@@ -499,28 +542,32 @@ function woodTexture(o){
 }
 var woodWallTex  = tex(woodTexture({base:'#6d4a2c', dark:'#5e3f26', light:'#7b5636', planks:8, vertical:true }), 5, 2.4);
 var woodFloorTex = tex(woodTexture({base:'#b47b3f', dark:'#a56d33', light:'#c58f4d', planks:8, vertical:false}), 3.2, 3.6);
+var paintWallTex = tex(paintWallTexture(), 5.5, 4.2);
+var carpetTex = tex(carpetTexture(), 8, 10);
+var veneerTex = tex(veneerTexture(), 2.2, 3.5);
+var fabricTex = tex(fabricTexture(), 4, 5);
 
-/* ---------- materials (warm, Sims-inspired) -------------------------------- */
+/* ---------- materials (Accurate Campus Twin) ------------------------------- */
 var MAT = {
-  wall:  new THREE.MeshStandardMaterial({map:woodWallTex, roughness:0.82, metalness:0.02, side:THREE.DoubleSide}),
-  floor: new THREE.MeshStandardMaterial({map:woodFloorTex, roughness:0.55, metalness:0.02}),
+  wall:  new THREE.MeshStandardMaterial({map:paintWallTex, color:0xf2f1ec, roughness:0.94, metalness:0, side:THREE.DoubleSide}),
+  floor: new THREE.MeshStandardMaterial({map:carpetTex, color:0x8f8676, roughness:1, metalness:0}),
   ceil:  new THREE.MeshStandardMaterial({color:0xf4efe2, roughness:1, side:THREE.DoubleSide}),
-  oak:   new THREE.MeshStandardMaterial({color:0xcaa15f, roughness:0.5}),
-  oakTop:new THREE.MeshStandardMaterial({color:0xd9ad68, roughness:0.42}),
+  oak:   new THREE.MeshStandardMaterial({map:veneerTex, color:0xcaa15f, roughness:0.72}),
+  oakTop:new THREE.MeshStandardMaterial({map:veneerTex, color:0xd9ad68, roughness:0.64}),
   metal: new THREE.MeshStandardMaterial({color:0x8b9099, roughness:0.4, metalness:0.6}),
   brass: new THREE.MeshStandardMaterial({color:0xc79a34, roughness:0.3, metalness:0.85}),
-  navy:  new THREE.MeshStandardMaterial({color:0x2b3a5e, roughness:0.45}),
-  bedL:  new THREE.MeshStandardMaterial({color:0xe88aa8, roughness:0.92}),   // pink comforter
-  bedR:  new THREE.MeshStandardMaterial({color:0xe6b84a, roughness:0.92}),   // golden comforter
-  pillow:new THREE.MeshStandardMaterial({color:0xfbf7ef, roughness:0.95}),
+  navy:  new THREE.MeshStandardMaterial({map:fabricTex, color:0x2b3a5e, roughness:0.9}),
+  bedL:  new THREE.MeshStandardMaterial({map:fabricTex, color:0xe88aa8, roughness:0.96}),
+  bedR:  new THREE.MeshStandardMaterial({map:fabricTex, color:0xe6b84a, roughness:0.96}),
+  pillow:new THREE.MeshStandardMaterial({map:fabricTex, color:0xfbf7ef, roughness:0.98}),
   chairBlue:new THREE.MeshStandardMaterial({color:0x2f4f7a, roughness:0.8}),
   door:  new THREE.MeshStandardMaterial({color:0x3a5f80, roughness:0.5}),
   mirror:new THREE.MeshStandardMaterial({color:0xcfe6ef, roughness:0.05, metalness:0.85}),
   glass: new THREE.MeshStandardMaterial({color:0xbfe0ee, roughness:0.1, metalness:0.1, transparent:true, opacity:0.4}),
-  rug:   new THREE.MeshStandardMaterial({color:0x2f9e8f, roughness:1}),
+  rug:   new THREE.MeshStandardMaterial({map:carpetTex, color:0x2f9e8f, roughness:1}),
   green: new THREE.MeshStandardMaterial({color:0x3f9d4f, roughness:0.8}),
   white: new THREE.MeshStandardMaterial({color:0xf1efe8, roughness:0.7}),
-  curtain:new THREE.MeshStandardMaterial({color:0x8b8f96, roughness:1}),
+  curtain:new THREE.MeshStandardMaterial({map:fabricTex, color:0x8b8f96, roughness:1}),
   dark:  new THREE.MeshStandardMaterial({color:0x2c3038, roughness:0.5}),
   screen:new THREE.MeshStandardMaterial({color:0x10131a, roughness:0.25, emissive:0x0a2140, emissiveIntensity:0.6})
 };
@@ -647,31 +694,38 @@ function buildRoom(){
   if(!S){ if(ROOM_CLOSETS>0) closetDoor(-1); if(ROOM_CLOSETS>1) closetDoor(1); }   // single: 1; triple uses freestanding wardrobes
 
   /* WINDOW(S) on the front wall, mounted on the INNER face so they show from inside.
-     Rectangular rooms have one centered window; polygon rooms list window centers. */
+     Object entries can rotate the same assembly onto a side or angled wall. */
   var wW=64, wH=52, sill=28, cy=sill+wH/2;
   var frameMat=new THREE.MeshStandardMaterial({color:0x5a4632, roughness:0.55});   // dark frame: contrasts any wall colour
   var skyMat=new THREE.MeshBasicMaterial({color:0x9ad3f0});                          // unlit bright sky, always visible
-  (S && S.windows ? S.windows : (ROOM_WINDOWS||[0])).forEach(function(wcx){
+  (S && S.windows ? S.windows : (ROOM_WINDOWS||[0])).forEach(function(wcx,wi){
     var wg=new THREE.Group();
     // a window entry may be a plain x offset (front wall) or {x,z,ry} for an
     // angled wall segment such as the Mudge quad's curved bay
     var wobj=(typeof wcx==='object');
     var frame=box(wW+7, wH+7, 3, frameMat); frame.position.set(0, cy, D/2-1.6);
-    frame.userData.hoverInfo={name:'Window', dims:dimLine(wW,wH,2), hint:'Sill ~28" up &middot; E-Tower window'};
+    frame.userData.hoverInfo={name:'Window', dims:dimLine(wW,wH,2), hint:'Representative window opening for this room type'};
     wg.add(frame);
     var pane=box(wW, wH, 0.6, skyMat); pane.position.set(0, cy, D/2-3.0);
     pane.userData.hoverInfo=frame.userData.hoverInfo; wg.add(pane);
     var mv=box(2,wH,0.9,frameMat); mv.position.set(0,cy,D/2-3.5); wg.add(mv);
     var mh=box(wW,2,0.9,frameMat); mh.position.set(0,cy,D/2-3.5); wg.add(mh);
     var winLight=new THREE.PointLight(0xdcf0ff,0.45,340); winLight.position.set(0,cy,D/2-14); wg.add(winLight);
-    /* radiator, in front of the wall below the window */
-    var radG=new THREE.Group();
-    var rad=box(wW-2, 16, 7, MAT.white); rad.position.y=12; radG.add(rad);
-    for(var i=0;i<18;i++){ var fin=box(0.6,14,7.4,MAT.metal); fin.position.set(-wW/2+4+i*3, 12, 0); radG.add(fin); }
-    radG.position.set(0, 0, D/2 - 4.5);
-    radG.userData.hoverInfo={name:'Radiator (heat)', dims:dimLine(wW-2,16,7), hint:'E-Tower heat. No A/C, so plan a fan.'};
-    wg.add(radG);
+    /* Building-specific mechanical unit. Morewood uses central A/C, not radiators. */
+    if(ROOM_MECHANICAL==='hvac' && wi===0){
+      var hvacG=new THREE.Group(), hv=box(wW-4,18,10,MAT.white); hv.position.y=13; hvacG.add(hv);
+      for(var hi=0;hi<10;hi++){ var vent=box(4,0.5,10.4,MAT.metal); vent.position.set(-wW/2+7+hi*5,22,0); hvacG.add(vent); }
+      hvacG.position.set(0,0,D/2-6); hvacG.userData.hoverInfo={name:'HVAC unit',dims:dimLine(wW-4,18,10),hint:'Central in-unit heating and air conditioning'}; wg.add(hvacG);
+    } else if(ROOM_MECHANICAL==='radiator' || ROOM_MECHANICAL==='ac-radiator'){
+      var radG=new THREE.Group();
+      var rad=box(wW-2,16,7,MAT.white); rad.position.y=12; radG.add(rad);
+      for(var i=0;i<18;i++){ var fin=box(0.6,14,7.4,MAT.metal); fin.position.set(-wW/2+4+i*3,12,0); radG.add(fin); }
+      radG.position.set(0,0,D/2-4.5);
+      radG.userData.hoverInfo={name:'Radiator / convector',dims:dimLine(wW-2,16,7),hint:'Fixed heating equipment shown in official room imagery'}; wg.add(radG);
+      if(ROOM_MECHANICAL==='ac-radiator' && wi===0){ var ac=box(26,14,12,MAT.white); ac.position.set(20,58,D/2-7); ac.userData.hoverInfo={name:'Window A/C',dims:dimLine(26,14,12),hint:'Window air-conditioning unit'}; wg.add(ac); }
+    }
     if(wobj){
+      if(wcx.absolute){ /* x/z are the source-traced center of the opening */ }
       wg.rotation.y=wcx.ry||0;
       wg.position.set(wcx.x - Math.sin(wcx.ry||0)*(D/2), 0, wcx.z - Math.cos(wcx.ry||0)*(D/2));
     } else {
@@ -698,7 +752,17 @@ function buildRoom(){
     bwall(bw, 3, bcx, bt.z1+1.5);
     var wc=box(16,16,20,MAT.white); wc.position.set(bt.x1+14, 8, bt.z1+16);
     wc.userData.hoverInfo=bf.userData.hoverInfo; roomGroup.add(wc);
+    var sink=box(18,4,14,MAT.white); sink.position.set(bt.x2-14,30,bt.z1+14); sink.userData.hoverInfo=bf.userData.hoverInfo; roomGroup.add(sink);
+    var shower=box(Math.max(28,bw*0.42),2,Math.max(28,bd*0.34),MAT.white); shower.position.set(bt.x2-Math.max(28,bw*0.42)/2-2,2,bt.z2-Math.max(28,bd*0.34)/2-2); shower.userData.hoverInfo=bf.userData.hoverInfo; roomGroup.add(shower);
   }
+
+  /* Source-traced fixed features that are not part of the generic shell. */
+  (ROOM_FEATURES||[]).forEach(function(f){
+    if(f.kind==='column'){
+      var cm=box(f.w||14,f.h||H,f.d||14,new THREE.MeshStandardMaterial({color:f.color||0xd7d1c5,roughness:0.8}));
+      cm.position.set(f.x,(f.h||H)/2,f.z); cm.userData.hoverInfo={name:'Masonry column',dims:dimLine(f.w||14,f.h||H,f.d||14),hint:'Fixed structural column from the official floor plan'}; roomGroup.add(cm);
+    }
+  });
 
   /* ceiling light + smoke detector */
   var lightG=new THREE.Group();
@@ -747,6 +811,29 @@ function buildDimLabels(){
 }
 
 /* ====================  FURNITURE BUILDERS  ================================= */
+function localizeItemMaterials(g){
+  var source=[], local=[];
+  function localMaterial(mat){
+    var i=source.indexOf(mat);
+    if(i<0){ source.push(mat); local.push(mat.clone()); i=local.length-1; }
+    return local[i];
+  }
+  g.traverse(function(o){ if(o.isMesh && o.material){
+    if(Array.isArray(o.material)) o.material=o.material.map(localMaterial);
+    else o.material=localMaterial(o.material);
+  }});
+  if(g.userData.recolorTargets){
+    g.userData.recolorTargets=g.userData.recolorTargets.map(function(t){
+      var mats=[];
+      (t.mats||[]).forEach(function(mat){
+        var i=source.indexOf(mat); if(i>=0 && mats.indexOf(local[i])<0) mats.push(local[i]);
+      });
+      return {label:t.label,mats:mats,input:t.input,kind:t.kind};
+    }).filter(function(t){ return t.mats.length; });
+  } else if(local.length){
+    g.userData.recolorTargets=[{label:'Color',mats:local.slice(),input:'c_gen'}];
+  }
+}
 function tagItem(g, name, w, h, d, hint){
   g.userData.hoverInfo = { name:name, dims:dimLine(w,h,d), hint:hint||'Drag to move; resize/recolor on the toolbar' };
   g.userData.footprint = { w:w, d:d, h:h };
@@ -755,16 +842,7 @@ function tagItem(g, name, w, h, d, hint){
   g.userData.pw=w; g.userData.ph=h; g.userData.pd=d;
   g.userData.ow=w; g.userData.oh=h; g.userData.od=d;
   g.traverse(function(o){ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
-  if(!g.userData.recolorTargets){                 // generic: recolor the whole item as one color
-    var uniq=[];
-    g.traverse(function(o){ if(o.isMesh && o.material){
-      var ms=Array.isArray(o.material)?o.material:[o.material];
-      var cl=ms.map(function(m){ var c=m.clone(); return c; });
-      if(Array.isArray(o.material)) o.material=cl; else o.material=cl[0];
-      cl.forEach(function(c){ if(uniq.indexOf(c)<0) uniq.push(c); });
-    }});
-    if(uniq.length) g.userData.recolorTargets=[{label:'Color',mats:uniq,input:'c_gen'}];
-  }
+  localizeItemMaterials(g);                       // every item owns its editable materials
   return g;
 }
 
@@ -1298,6 +1376,9 @@ var ROOM_FURN=null;   // optional per-room furniture plan (from the CMU floor pl
 var ROOM_DOORX=0;     // door offset along the back wall for rectangular rooms
 var ROOM_WINDOWS=null;// window center offsets for rectangular rooms (default centered)
 var ROOM_BATH=null;   // optional in-room bathroom block for rectangular rooms
+var ROOM_MECHANICAL='radiator'; // radiator, HVAC, combined A/C + radiator, or none
+var ROOM_COVERING='curtains';   // source-driven curtains, blinds, or none
+var ROOM_FEATURES=[];           // fixed columns and other room-specific architecture
 function layoutPlan(list, bedTop, bunk){   // place furniture exactly as drawn on the floor plan
   BED_TOP=bedTop;
   var firstBed=null, bedCount=0;
@@ -1350,10 +1431,11 @@ function toggleDecor(id, on, builder){
 function chk(id){ var e=document.getElementById(id); return e?e.checked:false; }
 
 function applyDecor(){
-  if(!decor['curtain']){                       // one curtain set per window
+  decorDel('curtain');
+  if(ROOM_COVERING!=='none'){
     var g=new THREE.Group();
     (ROOM_SHAPE && ROOM_SHAPE.windows ? ROOM_SHAPE.windows : (ROOM_WINDOWS||[0])).forEach(function(cx){
-      var c=makeCurtains();
+      var c=ROOM_COVERING==='blinds'?makeBlinds():makeCurtains();
       if(typeof cx==='object'){
         c.rotation.y=cx.ry||0;
         c.position.set(cx.x - Math.sin(cx.ry||0)*(ROOM.d/2), 0, cx.z - Math.cos(cx.ry||0)*(ROOM.d/2));
@@ -1541,18 +1623,29 @@ function makeCurtains(){ var g=new THREE.Group();
   g.userData.recolorTargets=[C_CURT];
   return g;
 }
+function makeBlinds(){ var g=new THREE.Group(), D=ROOM.d, z=D/2-4, w=60, h=50, top=80;
+  var rail=box(w+4,3,2,MAT.white); rail.position.set(0,top,z); g.add(rail);
+  for(var i=0;i<13;i++){ var slat=box(w,1.3,1.4,MAT.white); slat.position.set(0,top-4-i*3.7,z); g.add(slat); }
+  var cord=box(0.5,h,0.5,MAT.metal); cord.position.set(w/2+4,top-h/2,z); g.add(cord);
+  g.userData.hoverInfo={name:'Venetian blinds',dims:dimLine(w,h,2),hint:'Building-standard window covering shown in official imagery'};
+  return g;
+}
 
 /* ====================  COLORS  ========================================== */
 function saveIf(){ if(typeof autosave==='function') autosave(); }
 function applyBedColors(){
-  MAT.bedL.color.set(document.getElementById('c_bedL').value);
-  MAT.bedR.color.set(document.getElementById('c_bedR').value);
+  var left=document.getElementById('c_bedL').value, right=document.getElementById('c_bedR').value;
+  MAT.bedL.color.set(left); MAT.bedR.color.set(right);
+  items.forEach(function(o){ (o.userData.recolorTargets||[]).forEach(function(t){
+    var color=t.input==='c_bedL'?left:(t.input==='c_bedR'?right:null);
+    if(color) t.mats.forEach(function(m){ m.color.set(color); m.needsUpdate=true; });
+  }); });
 }
 document.getElementById('c_bedL').addEventListener('input',function(){ applyBedColors(); saveIf(); });
 document.getElementById('c_bedR').addEventListener('input',function(){ applyBedColors(); saveIf(); });
 function applyWallStyle(){
   var mode=document.getElementById('wallStyle').value;
-  if(mode==='paint'){ MAT.wall.map=null; MAT.wall.color.set(document.getElementById('c_wall').value); }
+  if(mode==='paint'){ MAT.wall.map=paintWallTex; MAT.wall.color.set(document.getElementById('c_wall').value); }
   else { MAT.wall.map=woodWallTex; MAT.wall.color.set(0xffffff); }
   MAT.wall.needsUpdate=true;
 }
@@ -1562,10 +1655,20 @@ document.getElementById('c_wall').addEventListener('input',function(){
 });
 document.getElementById('c_rug').addEventListener('input',function(){ MAT.rug.color.set(this.value); saveIf(); });
 document.getElementById('c_curtain').addEventListener('input',function(){ MAT.curtain.color.set(this.value); saveIf(); });
+function applyFloorStyle(customColor){
+  var ft=document.getElementById('floorType'), mode=ft?ft.value:'carpetgray';
+  if(mode==='wood'){
+    MAT.floor.map=woodFloorTex; MAT.floor.color.set(customColor||0xffffff); MAT.floor.roughness=0.68;
+    var wf=document.getElementById('c_floor'); if(wf) wf.value=customColor||'#ffffff';
+  } else {
+    var color=customColor||(mode==='carpetblue'?'#5f76a8':'#8f8676');
+    MAT.floor.map=carpetTex; MAT.floor.color.set(color); MAT.floor.roughness=1;
+    var cf=document.getElementById('c_floor'); if(cf) cf.value=color;
+  }
+  MAT.floor.needsUpdate=true;
+}
 document.getElementById('floorType').addEventListener('change',function(){
-  if(this.value==='wood'){ MAT.floor.map=woodFloorTex; MAT.floor.color.set(0xffffff); }
-  else { MAT.floor.map=null; MAT.floor.color.set(this.value==='carpetblue'?0x5f76a8:0x8f8676); }
-  MAT.floor.needsUpdate=true; saveIf();
+  applyFloorStyle(); saveIf();
 });
 
 /* ====================  WALL VISIBILITY  ================================= */
@@ -1785,8 +1888,11 @@ document.getElementById('delSel').onclick=function(){
 document.getElementById('selColor').addEventListener('input',function(){
   if(!selected) return; var tgs=selected.userData.recolorTargets; if(!tgs) return;
   var t=tgs[selected.userData._ct||0]; if(!t) return; var val=this.value;
-  if(t.kind==='wall'){ var ws=document.getElementById('wallStyle'); if(ws) ws.value='paint'; }
-  t.mats.forEach(function(m){ if(t.kind==='wall'||t.kind==='floor') m.map=null; m.color.set(val); m.needsUpdate=true; });
+  if(t.kind==='wall'){
+    var ws=document.getElementById('wallStyle'); if(ws) ws.value='paint';
+    t.mats.forEach(function(m){ m.map=paintWallTex; });
+  }
+  t.mats.forEach(function(m){ m.color.set(val); m.needsUpdate=true; });
   if(t.input){ var el=document.getElementById(t.input); if(el) el.value=val; }
   if(typeof autosave==='function') autosave();
 });
@@ -2112,12 +2218,12 @@ function itemColors(o){ var t=o.userData.recolorTargets; if(!t) return null;
   return t.map(function(x){ return '#'+x.mats[0].color.getHexString(); }); }
 function applyItemColors(o, cols){ var t=o.userData.recolorTargets; if(!t||!cols) return;
   for(var i=0;i<t.length && i<cols.length;i++){ var tg=t[i];
-    tg.mats.forEach(function(m){ if(tg.kind==='wall'||tg.kind==='floor') m.map=null; m.color.set(cols[i]); m.needsUpdate=true; }); } }
+    tg.mats.forEach(function(m){ m.color.set(cols[i]); m.needsUpdate=true; }); } }
 function serialize(){
   return { v:3, room:{w:ROOM.w,d:ROOM.d,h:ROOM.h}, layout:currentLayout, bedTop:BED_TOP,
     roomKey:CURRENT_ROOM_KEY, beds:ROOM_BEDS,
     colors:{wall:val('c_wall'),wallStyle:val('wallStyle'),bedL:val('c_bedL'),bedR:val('c_bedR'),
-            curtain:val('c_curtain'),rug:val('c_rug'),floor:val('floorType')},
+            curtain:val('c_curtain'),rug:val('c_rug'),floor:val('floorType'),floorColor:val('c_floor')},
     items:items.map(function(o){ var u=o.userData; return {
       kind:u.kind, id:u.id, x:o.position.x, y:o.position.y, z:o.position.z, ry:o.rotation.y,
       pw:u.pw, ph:u.ph, pd:u.pd, wall:u.wall, bt:u.bedTop, img:u.imgURL||null, colors:itemColors(o) }; })
@@ -2142,19 +2248,22 @@ document.getElementById('fileIn').addEventListener('change',function(e){
 });
 function loadState(s){
   if(!s) return; deselect();
-  if(s.room){ ROOM.w=s.room.w||ROOM.w; ROOM.d=s.room.d||ROOM.d; ROOM.h=s.room.h||ROOM.h;
+  var savedRoom=roomConfigForKey(s.roomKey||CURRENT_ROOM_KEY), validSavedRoom=!!savedRoom;
+  if(!savedRoom){ CURRENT_ROOM_KEY=DEFAULT_ROOM_KEY; savedRoom=roomConfigForKey(DEFAULT_ROOM_KEY); }
+  else CURRENT_ROOM_KEY=s.roomKey||CURRENT_ROOM_KEY;
+  var rc=savedRoom.room;
+  if(validSavedRoom && s.room){ ROOM.w=s.room.w||ROOM.w; ROOM.d=s.room.d||ROOM.d; ROOM.h=s.room.h||ROOM.h;
     if(document.getElementById('rW'))document.getElementById('rW').value=ROOM.w;
     if(document.getElementById('rD'))document.getElementById('rD').value=ROOM.d;
-    if(document.getElementById('rH'))document.getElementById('rH').value=ROOM.h; }
+    if(document.getElementById('rH'))document.getElementById('rH').value=ROOM.h;
+  } else if(rc.room){
+    ROOM.w=rc.room.w; ROOM.d=rc.room.d; ROOM.h=rc.room.h;
+  }
   if(typeof s.bedTop==='number') BED_TOP=s.bedTop;
-  if(s.roomKey) CURRENT_ROOM_KEY=s.roomKey;
-  if(typeof s.beds==='number') ROOM_BEDS=s.beds;
-  // per-room extras (closet count etc.) come from the registry
-  try{ var rk=CURRENT_ROOM_KEY.split('/'), rc=SCHOOLS[rk[0]].buildings[rk[1]].rooms[rk[2]];
-    if(rc){ ROOM_CLOSETS=(typeof rc.closets==='number')?rc.closets:2; ROOM_SHAPE=rc.shape||null;
-      ROOM_FURN=rc.furniture||null; ROOM_DOORX=rc.doorX||0; ROOM_WINDOWS=rc.windows||null; ROOM_BATH=rc.bath||null;
-      if(typeof s.beds!=='number') ROOM_BEDS=rc.beds||2; }
-  }catch(e){ ROOM_CLOSETS=2; ROOM_SHAPE=null; ROOM_FURN=null; ROOM_DOORX=0; ROOM_WINDOWS=null; ROOM_BATH=null; }
+  ROOM_BEDS=(validSavedRoom && typeof s.beds==='number')?s.beds:(rc.beds||2);
+  ROOM_CLOSETS=(typeof rc.closets==='number')?rc.closets:2; ROOM_SHAPE=rc.shape||null;
+  ROOM_FURN=rc.furniture||null; ROOM_DOORX=rc.doorX||0; ROOM_WINDOWS=rc.windows||null; ROOM_BATH=rc.bath||null;
+  applyRoomProfile(rc);
   currentLayout=s.layout||currentLayout;
   if(s.colors){
     if(s.colors.wall && document.getElementById('c_wall')) document.getElementById('c_wall').value=s.colors.wall;
@@ -2166,7 +2275,7 @@ function loadState(s){
     if(s.colors.floor && document.getElementById('floorType')) document.getElementById('floorType').value=s.colors.floor;
   }
   buildRoom(); applyWallStyle();
-  var ft=document.getElementById('floorType'); if(ft) ft.dispatchEvent(new Event('change'));
+  applyFloorStyle(s.colors&&s.colors.floorColor?s.colors.floorColor:null);
   clearItems();
   if(s.items){ s.items.forEach(function(it){
     if(!it.kind) return;
@@ -2201,6 +2310,36 @@ function resize(){
 window.addEventListener('resize',resize);
 function render(){ requestAnimationFrame(render); if(selBox) selBox.update(); renderer.render(scene,camera); }
 
+/* Every current and future room starts with the Accurate Campus Twin material
+   system. Source-backed room finish values override this neutral fallback. */
+var CAMPUS_DEFAULT_FINISH = {
+  floor:'carpetgray', covering:'blinds', wall:'#f1efe8', wood:'#a77b4e',
+  door:'#74716a', curtain:'#b9b5ac', bedL:'#d9d5cc', bedR:'#cbc5ba'
+};
+function resolveFinish(cfg){
+  var src=(cfg&&cfg.finish)||{}, out={}, k;
+  for(k in CAMPUS_DEFAULT_FINISH) out[k]=CAMPUS_DEFAULT_FINISH[k];
+  for(k in src) out[k]=src[k];
+  return out;
+}
+/* Apply the representative finish and fixed-feature profile for a room type.
+   Users can still customize every finish after the source-backed defaults load. */
+function applyRoomProfile(cfg){
+  var f=resolveFinish(cfg);
+  ROOM_MECHANICAL=cfg.mechanical||'none';
+  ROOM_COVERING=f.covering||'none';
+  ROOM_FEATURES=cfg.features||[];
+  MAT.wall.map=paintWallTex; MAT.wall.color.set(f.wall); var cw=document.getElementById('c_wall'); if(cw)cw.value=f.wall; var ws=document.getElementById('wallStyle'); if(ws)ws.value='paint';
+  if(f.wood){ MAT.oak.color.set(f.wood); MAT.oakTop.color.set(f.woodTop||f.wood); }
+  if(f.door) MAT.door.color.set(f.door);
+  if(f.curtain){ MAT.curtain.color.set(f.curtain); var cc=document.getElementById('c_curtain'); if(cc)cc.value=f.curtain; }
+  if(f.bedL){ MAT.bedL.color.set(f.bedL); var bl=document.getElementById('c_bedL'); if(bl)bl.value=f.bedL; }
+  if(f.bedR){ MAT.bedR.color.set(f.bedR); var br=document.getElementById('c_bedR'); if(br)br.value=f.bedR; }
+  var ft=document.getElementById('floorType'); if(ft) ft.value=f.floor||'carpetgray';
+  applyFloorStyle(f.floorColor||null);
+  MAT.wall.needsUpdate=true;
+}
+
 /* ====================  ROOM REGISTRY  ================================ */
 /* Defined BEFORE boot so the autosave restore below can bring back the room
    key the user was in. Add a school by dropping another entry in here. Each
@@ -2210,9 +2349,9 @@ function render(){ requestAnimationFrame(render); if(selBox) selBox.update(); re
 var SCHOOLS = {
   cmu:{ name:'Carnegie Mellon University', buildings:{
     etower:{ name:'Morewood Gardens (E-Tower)', rooms:{
-      trad_double:{ name:'Traditional Double', room:{w:151.5,d:166,h:96}, layout:'standard', beds:2 },
-      trad_single:{ name:'Traditional Single', room:{w:151.5,d:110,h:96}, layout:'standard', beds:1, closets:1, doorX:30 },
-      semi_triple:{ name:'Semi-Suite Triple', room:{w:306,d:188,h:96}, layout:'standard', beds:3, closets:0,
+      trad_double:{ name:'Traditional Double', room:{w:151.5,d:166,h:96}, layout:'standard', beds:2, mechanical:'radiator', finish:{floor:'carpetgray',covering:'curtains',wall:'#f2f1ec',wood:'#b38a55',door:'#747a78',curtain:'#b8b3a8',bedL:'#d8d5cc',bedR:'#c9c5ba'} },
+      trad_single:{ name:'Traditional Single', room:{w:151.5,d:110,h:96}, layout:'standard', beds:1, closets:1, doorX:30, mechanical:'radiator', finish:{floor:'carpetgray',covering:'curtains',wall:'#f2f1ec',wood:'#b38a55',door:'#747a78',curtain:'#b8b3a8',bedL:'#d8d5cc',bedR:'#c9c5ba'} },
+      semi_triple:{ name:'Semi-Suite Triple', room:{w:306,d:188,h:96}, layout:'standard', beds:3, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'curtains',wall:'#f2f1ec',wood:'#b38a55',door:'#747a78',curtain:'#b8b3a8',bedL:'#d8d5cc',bedR:'#c9c5ba'},
         // outline traced from the measured room 323 scan: 25'6" window wall, 13'2" left
         // depth, shallower 8'0" right section, private bath block, entry corridor
         shape:{
@@ -2225,16 +2364,16 @@ var SCHOOLS = {
     }},
     morewood:{ name:'Morewood Gardens (Main)', rooms:{
       // traced from the official per-room floor plan PDFs (window wall = front)
-      ss_single:{ name:'Semi-Suite Single', room:{w:88,d:221.1,h:96}, layout:'standard', beds:1, closets:0,
+      ss_single:{ name:'Semi-Suite Single', room:{w:88,d:221.1,h:96}, layout:'standard', beds:1, closets:0, mechanical:'hvac', finish:{floor:'carpetgray',covering:'blinds',wall:'#f4f1e8',wood:'#9a6f45',door:'#755d43',bedL:'#dedbd2',bedR:'#d3cfc5'},
         doorX:23, windows:[15],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:23.5, z:64.55, ry:Math.PI},
-          {k:'desk', id:'L', x:-25, z:90, ry:Math.PI},
-          {k:'chair', id:'chairL', x:-25, z:66, ry:0},
+          {k:'desk', id:'L', x:-22, z:90, ry:Math.PI},
+          {k:'chair', id:'chairL', x:-22, z:66, ry:0},
           {k:'closet', id:'closetL', x:-31.75, z:10, ry:Math.PI/2},
           {k:'dresser', id:'dresserL', x:-25, z:-101, ry:0}
         ] },
-      ss_double:{ name:'Semi-Suite Double', room:{w:155,d:221.1,h:96}, layout:'standard', beds:2, closets:0,
+      ss_double:{ name:'Semi-Suite Double', room:{w:155,d:221.1,h:96}, layout:'standard', beds:2, closets:0, mechanical:'hvac', finish:{floor:'wood',covering:'blinds',wall:'#f4f1e8',wood:'#9a6f45',door:'#755d43',bedL:'#dedbd2',bedR:'#d3cfc5'},
         doorX:30, windows:[-40,30], bath:{x1:-77.5,z1:-110,x2:-10,z2:-50},
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-57, z:60, ry:Math.PI},
@@ -2246,7 +2385,7 @@ var SCHOOLS = {
           {k:'dresser', id:'dresserL', x:-68.5, z:5, ry:Math.PI/2},
           {k:'dresser', id:'dresserR', x:30, z:-30, ry:0}
         ] },
-      ss_triple:{ name:'Semi-Suite Triple', room:{w:298,d:187.3,h:96}, layout:'standard', beds:3, closets:0,
+      ss_triple:{ name:'Semi-Suite Triple', room:{w:298,d:187.3,h:96}, layout:'standard', beds:3, closets:0, mechanical:'hvac', finish:{floor:'wood',covering:'blinds',wall:'#f4f1e8',wood:'#9a6f45',door:'#755d43',bedL:'#dedbd2',bedR:'#d3cfc5'},
         shape:{
           outline:[[-149,93.65],[149,93.65],[149,-59],[140,-59],[140,-93.65],[105,-93.65],[105,-59],[-149,-59]],
           windows:[-60,40], door:{x:122.5}, light:[0,20]
@@ -2268,7 +2407,7 @@ var SCHOOLS = {
     }},
     mudge:{ name:'Mudge House', rooms:{
       // every room traced from its official floor plan PDF
-      trad_single:{ name:'Traditional Single', room:{w:95.5,d:174,h:96}, layout:'standard', beds:1, closets:0,
+      trad_single:{ name:'Traditional Single', room:{w:95.5,d:174,h:96}, layout:'standard', beds:1, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eadf',wood:'#735237',door:'#6f6257',bedL:'#d8d2c7',bedR:'#c9c1b4'},
         doorX:25, windows:[-5],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-27.25, z:41, ry:Math.PI},
@@ -2277,20 +2416,20 @@ var SCHOOLS = {
           {k:'dresser', id:'dresserL', x:39.75, z:20, ry:-Math.PI/2},
           {k:'closet', id:'closetL', x:-23.75, z:-75, ry:0}
         ] },
-      trad_double:{ name:'Traditional Double', room:{w:182,d:187,h:96}, layout:'standard', beds:2, closets:2,
-        doorX:0, windows:[-30],
+      trad_double:{ name:'Traditional Double', room:{w:182,d:187,h:96}, layout:'standard', beds:2, closets:2, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eadf',wood:'#735237',door:'#6f6257',bedL:'#d8d2c7',bedR:'#c9c1b4'},
+        doorX:0, windows:[-40,40],
         furniture:[
           {k:'desk', id:'L', x:-55, z:78, ry:Math.PI},
           {k:'chair', id:'chairL', x:-55, z:54, ry:0},
-          {k:'bed', id:'bedL', side:'L', x:-20, z:40, ry:Math.PI},
-          {k:'bed', id:'bedR', side:'R', x:70.5, z:40, ry:Math.PI},
-          {k:'desk', id:'R', x:-79, z:-20, ry:-Math.PI/2},
-          {k:'chair', id:'chairR', x:-64, z:-20, ry:Math.PI/2},
+          {k:'bed', id:'bedL', side:'L', x:-45, z:-20, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:45, z:30, ry:Math.PI},
+          {k:'desk', id:'R', x:79, z:-50, ry:Math.PI/2},
+          {k:'chair', id:'chairR', x:64, z:-50, ry:-Math.PI/2},
           {k:'dresser', id:'dresserL', x:82, z:-5, ry:-Math.PI/2},
-          {k:'dresser', id:'dresserR', x:82, z:-40, ry:-Math.PI/2}
+          {k:'dresser', id:'dresserR', x:-82, z:-40, ry:Math.PI/2}
         ] },
-      trad_triple:{ name:'Traditional Triple', room:{w:201,d:152,h:96}, layout:'standard', beds:3, closets:0,
-        doorX:55, windows:[-50,30],
+      trad_triple:{ name:'Traditional Triple', room:{w:201,d:152,h:96}, layout:'standard', beds:3, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eadf',wood:'#735237',door:'#6f6257',bedL:'#d8d2c7',bedR:'#c9c1b4'},
+        doorX:55, windows:[-50,30,{x:-100.5,z:0,ry:-Math.PI/2,absolute:true}],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-80, z:30, ry:Math.PI},
           {k:'bed', id:'bedM', side:'L', x:-80, z:30, ry:Math.PI, y:46},
@@ -2306,8 +2445,8 @@ var SCHOOLS = {
           {k:'dresser', id:'dresserM', x:40, z:-20, ry:0},
           {k:'dresser', id:'dresserR', x:-40, z:-20, ry:0}
         ] },
-      ss_single:{ name:'Semi-Suite Single', room:{w:151.5,d:123,h:96}, layout:'standard', beds:1, closets:0,
-        doorX:40, windows:[-20],
+      ss_single:{ name:'Semi-Suite Single', room:{w:151.5,d:123,h:96}, layout:'standard', beds:1, closets:0, mechanical:'ac-radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eadf',wood:'#735237',door:'#6f6257',bedL:'#d8d2c7',bedR:'#c9c1b4'},
+        doorX:40, windows:[-38,38],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-55.25, z:15.5, ry:Math.PI},
           {k:'desk', id:'L', x:40, z:48.5, ry:Math.PI},
@@ -2316,31 +2455,31 @@ var SCHOOLS = {
           {k:'closet', id:'closetL', x:-45, z:-49.5, ry:0},
           {k:'dresser', id:'dresserR', x:-5, z:-52.5, ry:0}
         ] },
-      ss_double:{ name:'Semi-Suite Double', room:{w:152.75,d:205,h:96}, layout:'standard', beds:2, closets:0,
+      ss_double:{ name:'Semi-Suite Double', room:{w:150.75,d:205,h:96}, layout:'standard', beds:2, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eadf',wood:'#735237',door:'#6f6257',bedL:'#d8d2c7',bedR:'#c9c1b4'},
         doorX:-35, windows:[-20,45],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-56, z:60, ry:Math.PI},
           {k:'bed', id:'bedR', side:'R', x:56.4, z:5, ry:Math.PI},
-          {k:'desk', id:'L', x:-64.4, z:-15, ry:-Math.PI/2},
+          {k:'desk', id:'L', x:-63.3, z:-15, ry:-Math.PI/2},
           {k:'chair', id:'chairL', x:-49, z:-15, ry:Math.PI/2},
-          {k:'desk', id:'R', x:64.4, z:75, ry:Math.PI/2},
+          {k:'desk', id:'R', x:63.3, z:75, ry:Math.PI/2},
           {k:'chair', id:'chairR', x:49.4, z:75, ry:-Math.PI/2},
-          {k:'dresser', id:'dresserL', x:67.4, z:-60, ry:-Math.PI/2},
-          {k:'dresser', id:'dresserR', x:-67.4, z:-60, ry:Math.PI/2},
+          {k:'dresser', id:'dresserL', x:66.3, z:-60, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserR', x:-66.3, z:-60, ry:Math.PI/2},
           {k:'closet', id:'closetA', x:12, z:-90.5, ry:0},
           {k:'closet', id:'closetB', x:52, z:-90.5, ry:0}
         ] },
-      ss_quad:{ name:'Semi-Suite Quad', room:{w:289.8,d:210,h:96}, layout:'standard', beds:4, closets:0,
+      ss_quad:{ name:'Semi-Suite Quad', room:{w:289.8,d:210,h:96}, layout:'standard', beds:4, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eadf',wood:'#735237',door:'#6f6257',bedL:'#d8d2c7',bedR:'#c9c1b4'},
         // the A-tower round room: curved window bay traced as facets
         shape:{
-          outline:[[-144.9,-105],[144.9,-105],[144.9,55],[100,88],[35,103],[-35,103],[-100,88],[-144.9,55]],
-          windows:[{x:-67.5,z:95.5,ry:-0.22},{x:0,z:103,ry:0},{x:67.5,z:95.5,ry:0.22}],
+          outline:[[-144.9,-105],[144.9,-105],[144.9,55],[100,89],[35,105],[-35,105],[-100,89],[-144.9,55]],
+          windows:[{x:-67.5,z:97,ry:-0.22},{x:0,z:105,ry:0},{x:67.5,z:97,ry:0.22}],
           door:{x:120}, light:[0,-20]
         },
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-124.4, z:-60, ry:0},
           {k:'bed', id:'bedM', side:'R', x:10, z:-60, ry:0},
-          {k:'bed', id:'bedR', side:'L', x:-124.4, z:10, ry:0},
+          {k:'bed', id:'bedR', side:'L', x:-124.4, z:30, ry:0},
           {k:'bed', id:'bedQ', side:'R', x:60, z:-10, ry:0},
           {k:'desk', id:'L', x:0, z:80, ry:Math.PI},
           {k:'chair', id:'chairL', x:0, z:56, ry:0},
@@ -2348,6 +2487,8 @@ var SCHOOLS = {
           {k:'chair', id:'chairM', x:-55, z:45, ry:0},
           {k:'desk', id:'R', x:60, z:68, ry:-2.92},
           {k:'chair', id:'chairR', x:55, z:45, ry:0},
+          {k:'desk', id:'Q', x:128, z:15, ry:-Math.PI/2},
+          {k:'chair', id:'chairQ', x:112, z:15, ry:Math.PI/2},
           {k:'dresser', id:'dresserL', x:-60, z:-96, ry:0},
           {k:'dresser', id:'dresserM', x:45, z:-96, ry:0},
           {k:'dresser', id:'dresserR', x:80, z:-96, ry:0},
@@ -2355,7 +2496,7 @@ var SCHOOLS = {
         ] }
     }},
     donner:{ name:'Donner House', rooms:{
-      trad_single:{ name:'Traditional Single', room:{w:94,d:191,h:96}, layout:'standard', beds:1, closets:0,
+      trad_single:{ name:'Traditional Single', room:{w:94,d:191,h:96}, layout:'standard', beds:1, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'curtains',wall:'#eee9dc',wood:'#9c744c',door:'#765f48',curtain:'#cbbfae',bedL:'#d9d4ca',bedR:'#cbc4b8'},
         doorX:-25, windows:[10],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-26.5, z:49.5, ry:Math.PI},
@@ -2364,23 +2505,25 @@ var SCHOOLS = {
           {k:'dresser', id:'dresserL', x:-38, z:-5, ry:Math.PI/2},
           {k:'closet', id:'closetL', x:20, z:-83.5, ry:0}
         ] },
-      trad_double:{ name:'Traditional Double', room:{w:159.1,d:191.1,h:96}, layout:'standard', beds:2, closets:0,
+      trad_double:{ name:'Traditional Double', room:{w:159.1,d:191.1,h:96}, layout:'standard', beds:2, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'curtains',wall:'#eee9dc',wood:'#9c744c',door:'#765f48',curtain:'#cbbfae',bedL:'#d9d4ca',bedR:'#cbc4b8'},
         doorX:0, windows:[-40,40],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-59, z:49.55, ry:Math.PI},
           {k:'bed', id:'bedR', side:'R', x:59, z:49.55, ry:Math.PI},
           {k:'desk', id:'L', x:0, z:80, ry:Math.PI},
           {k:'chair', id:'chairL', x:0, z:56, ry:0},
-          {k:'desk', id:'R', x:-67.5, z:-10, ry:-Math.PI/2},
-          {k:'chair', id:'chairR', x:-52.5, z:-10, ry:Math.PI/2},
+          {k:'desk', id:'R', x:-67.5, z:-15, ry:-Math.PI/2},
+          {k:'chair', id:'chairR', x:-52.5, z:-15, ry:Math.PI/2},
           {k:'dresser', id:'dresserL', x:71.55, z:-15, ry:-Math.PI/2},
-          {k:'dresser', id:'dresserR', x:-40, z:-80, ry:0},
-          {k:'closet', id:'closetL', x:40, z:-83.55, ry:0}
+          {k:'dresser', id:'dresserR', x:71.55, z:-48, ry:-Math.PI/2},
+          {k:'closet', id:'closetL', x:-40, z:-83.55, ry:0},
+          {k:'closet', id:'closetR', x:40, z:-83.55, ry:0}
         ] },
-      trad_triple:{ name:'Traditional Triple', room:{w:208.4,d:186.1,h:96}, layout:'standard', beds:3, closets:0,
+      trad_triple:{ name:'Traditional Triple', room:{w:208.4,d:186.1,h:96}, layout:'standard', beds:3, closets:0, mechanical:'ac-radiator', finish:{floor:'carpetgray',covering:'curtains',wall:'#eee9dc',wood:'#9c744c',door:'#765f48',curtain:'#cbbfae',bedL:'#d9d4ca',bedR:'#cbc4b8'},
         // traced from the Donner TT floor plan + Matterport tour: bunked pair on the
         // left, third bed on the right, desks under the windows, closets by the door
-        doorX:55, windows:[-52,52],
+        doorX:55, windows:[-52,52,{x:104.2,z:20,ry:Math.PI/2,absolute:true}],
+        features:[{kind:'column',x:94,z:82,w:16,d:16,h:96}],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-83.7, z:47, ry:Math.PI},
           {k:'bed', id:'bedM', side:'L', x:-83.7, z:47, ry:Math.PI, y:46},
@@ -2399,24 +2542,25 @@ var SCHOOLS = {
         ] }
     }},
     stever:{ name:'Stever House', rooms:{
-      trad_double:{ name:'Traditional Double', room:{w:126.5,d:193,h:96}, layout:'standard', beds:2, closets:0,
+      trad_double:{ name:'Traditional Double', room:{w:126.5,d:193,h:96}, layout:'standard', beds:2, closets:0, mechanical:'hvac', finish:{floor:'carpetgray',covering:'blinds',wall:'#f1efe9',wood:'#a77b4e',door:'#77746d',bedL:'#d8d4ca',bedR:'#c9c4ba'},
         doorX:-25, windows:[0],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-42.75, z:50.5, ry:Math.PI},
-          {k:'bed', id:'bedR', side:'R', x:-1, z:50.5, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:42.75, z:50.5, ry:Math.PI},
           {k:'desk', id:'L', x:-51.25, z:-10, ry:-Math.PI/2},
           {k:'chair', id:'chairL', x:-36, z:-10, ry:Math.PI/2},
-          {k:'desk', id:'R', x:51, z:-5, ry:Math.PI/2},
-          {k:'chair', id:'chairR', x:36, z:-5, ry:-Math.PI/2},
-          {k:'dresser', id:'dresserL', x:54.25, z:60, ry:-Math.PI/2},
-          {k:'dresser', id:'dresserR', x:54.25, z:28, ry:-Math.PI/2},
-          {k:'closet', id:'closetL', x:35, z:-84.5, ry:0}
+          {k:'desk', id:'R', x:51, z:-15, ry:Math.PI/2},
+          {k:'chair', id:'chairR', x:36, z:-15, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserL', x:0, z:-70, ry:0},
+          {k:'dresser', id:'dresserR', x:0, z:-40, ry:0},
+          {k:'closet', id:'closetL', x:-51, z:-58, ry:Math.PI/2},
+          {k:'closet', id:'closetR', x:51, z:-58, ry:-Math.PI/2}
         ] }
     }},
     boss:{ name:'Boss House', rooms:{
       // furniture positions traced from the official floor plan PDFs; the shared
       // semi-private bath sits outside the room across the suite hall
-      ss_single:{ name:'Semi-Suite Single', room:{w:125.75,d:101.4,h:96}, layout:'standard', beds:1, closets:0,
+      ss_single:{ name:'Semi-Suite Single', room:{w:125.75,d:101.4,h:96}, layout:'standard', beds:1, closets:0, mechanical:'ac-radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#f0ede5',wood:'#86633f',door:'#765b3f',bedL:'#d7d1c6',bedR:'#c8c0b4'},
         doorX:38, windows:[-10],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-43.4, z:0, ry:Math.PI},
@@ -2424,7 +2568,7 @@ var SCHOOLS = {
           {k:'chair', id:'chairL', x:22, z:12, ry:0},
           {k:'dresser', id:'dresserL', x:45, z:-41.7, ry:0}
         ] },
-      ss_double:{ name:'Semi-Suite Double', room:{w:144.75,d:169.4,h:96}, layout:'standard', beds:2, closets:0,
+      ss_double:{ name:'Semi-Suite Double', room:{w:144.75,d:169.4,h:96}, layout:'standard', beds:2, closets:0, mechanical:'ac-radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#f0ede5',wood:'#86633f',door:'#765b3f',bedL:'#d7d1c6',bedR:'#c8c0b4'},
         doorX:-50, windows:[-49],
         furniture:[
           {k:'bed', id:'bedL', side:'L', x:-48, z:39, ry:Math.PI},
@@ -2436,18 +2580,93 @@ var SCHOOLS = {
           {k:'dresser', id:'dresserL', x:63, z:-58, ry:-Math.PI/2},
           {k:'dresser', id:'dresserR', x:63, z:-25, ry:-Math.PI/2}
         ] }
+    }},
+    hamerschlag:{ name:'Hamerschlag House', rooms:{
+      // official CMU room-type PDFs; furniture positions traced proportionally
+      trad_single:{ name:'Traditional Single', room:{w:90.5,d:151.5,h:96}, layout:'standard', beds:1, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#eeeae1',wood:'#8b6847',door:'#716252',bedL:'#d8d3c9',bedR:'#c8c1b6'},
+        doorX:24, windows:[0], source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/hamerschlag-house/hamerschlag_traditional-single_floor-plan.pdf',
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-25, z:24, ry:Math.PI},
+          {k:'desk', id:'L', x:31, z:30, ry:Math.PI/2},
+          {k:'chair', id:'chairL', x:16, z:30, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserL', x:32, z:-40, ry:-Math.PI/2},
+          {k:'closet', id:'closetL', x:-20, z:-62, ry:0}
+        ] },
+      trad_double:{ name:'Traditional Double', room:{w:121.375,d:186.125,h:96}, layout:'standard', beds:2, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#eeeae1',wood:'#8b6847',door:'#716252',bedL:'#d8d3c9',bedR:'#c8c1b6'},
+        doorX:0, windows:[0], source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/hamerschlag-house/hamerschlag_traditional-double_floor-plan.pdf',
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-40, z:42, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:40, z:42, ry:Math.PI},
+          {k:'desk', id:'L', x:-39.5, z:-35, ry:0},
+          {k:'chair', id:'chairL', x:-39.5, z:-12, ry:Math.PI},
+          {k:'desk', id:'R', x:39.5, z:-35, ry:0},
+          {k:'chair', id:'chairR', x:39.5, z:-12, ry:Math.PI},
+          {k:'dresser', id:'dresserL', x:-50, z:-75, ry:Math.PI/2},
+          {k:'dresser', id:'dresserR', x:50, z:-75, ry:-Math.PI/2},
+          {k:'closet', id:'closetL', x:0, z:-78, ry:0}
+        ] }
+    }},
+    scobell:{ name:'Scobell House', rooms:{
+      // official CMU room-type PDFs; furniture positions traced proportionally
+      trad_single:{ name:'Traditional Single', room:{w:101.4375,d:150.25,h:96}, layout:'standard', beds:1, closets:0, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#eee9df',wood:'#825f42',door:'#6f5d4d',bedL:'#d7d1c7',bedR:'#c8c0b5'},
+        doorX:30, windows:[0], source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/scobell-house/scobell_traditional-single_floor-plan.pdf',
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-31, z:29, ry:Math.PI},
+          {k:'desk', id:'L', x:35, z:23, ry:Math.PI/2},
+          {k:'chair', id:'chairL', x:20, z:23, ry:-Math.PI/2},
+          {k:'dresser', id:'dresserL', x:35, z:60, ry:-Math.PI/2},
+          {k:'closet', id:'closetL', x:-25, z:-61, ry:0}
+        ] },
+      trad_double:{ name:'Traditional Double', room:{w:159.5,d:150.25,h:96}, layout:'standard', beds:2, closets:2, mechanical:'radiator', finish:{floor:'carpetgray',covering:'blinds',wall:'#eee9df',wood:'#825f42',door:'#6f5d4d',bedL:'#d7d1c7',bedR:'#c8c0b5'},
+        doorX:-52, windows:[-38], source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/scobell-house/scobell_traditional-double_floor-plan.pdf',
+        furniture:[
+          {k:'bed', id:'bedL', side:'L', x:-59, z:25, ry:Math.PI},
+          {k:'bed', id:'bedR', side:'R', x:58, z:25, ry:Math.PI},
+          {k:'desk', id:'L', x:0, z:62, ry:Math.PI},
+          {k:'chair', id:'chairL', x:0, z:39, ry:0},
+          {k:'desk', id:'R', x:0, z:-50, ry:0},
+          {k:'chair', id:'chairR', x:0, z:-27, ry:Math.PI},
+          {k:'dresser', id:'dresserL', x:-61, z:-35, ry:Math.PI/2},
+          {k:'dresser', id:'dresserR', x:61, z:-50, ry:-Math.PI/2}
+        ] }
+    }},
+    henderson:{ name:'Henderson House', rooms:{
+      ss_single:{ name:'Semi-Suite Single (verified unit envelope)', room:{w:210.5,d:143.0625,h:96}, layout:'standard', beds:1, closets:0, modelStatus:'official-unit-envelope', dimensionSpan:'complete representative semi-suite unit envelope; bedroom-only dimensions are not published', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#efede6',wood:'#8b6847',door:'#716252',bedL:'#d8d3c9',bedR:'#c8c1b6'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/henderson-house/henderson_semi-suite-single_floor-plan.pdf' },
+      ss_double:{ name:'Semi-Suite Double (verified unit envelope)', room:{w:180,d:158.5,h:96}, layout:'standard', beds:2, closets:0, modelStatus:'official-unit-envelope', dimensionSpan:'complete representative semi-suite unit envelope; bedroom-only dimensions are not published', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#efede6',wood:'#8b6847',door:'#716252',bedL:'#d8d3c9',bedR:'#c8c1b6'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/henderson-house/henderson_semi-suite-double_floor-plan.pdf' }
+    }},
+    mcgill:{ name:'McGill House', rooms:{
+      ss_single:{ name:'Semi-Suite Single (verified unit envelope)', room:{w:154.75,d:103.125,h:96}, layout:'standard', beds:1, closets:0, modelStatus:'official-unit-envelope', dimensionSpan:'complete illustrated unit footprint including bath and entry geometry', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#eeeae1',wood:'#86633f',door:'#765b3f',bedL:'#d7d1c6',bedR:'#c8c0b4'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/mcgill-house/mcgill-semi-suite-single-example.pdf' },
+      ss_double:{ name:'Semi-Suite Double (verified unit envelope)', room:{w:297.875,d:171,h:96}, layout:'standard', beds:2, closets:0, modelStatus:'official-unit-envelope', dimensionSpan:'complete illustrated two-bedroom and shared-bath unit; not a 24-foot bedroom', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#eeeae1',wood:'#86633f',door:'#765b3f',bedL:'#d7d1c6',bedR:'#c8c0b4'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/mcgill-house/mcgill-semi-suite-double-example.pdf' }
+    }},
+    resnik:{ name:'Resnik House', rooms:{
+      ss_single:{ name:'Semi-Suite Single (verified shell)', room:{w:98,d:148,h:96}, layout:'standard', beds:1, closets:0, modelStatus:'official-shell', dimensionSpan:'representative bedroom span; larger 3-5 resident suite varies', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eee8',wood:'#9a744f',door:'#73706a',bedL:'#d8d4ca',bedR:'#c9c4ba'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/resnik-house/resnik_semi-suite-single_floor-plan.pdf' },
+      ss_double:{ name:'Semi-Suite Double (verified shell)', room:{w:142,d:226,h:96}, layout:'standard', beds:2, closets:0, modelStatus:'official-shell', dimensionSpan:'representative bedroom span; complete suite topology varies by room number', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eee8',wood:'#9a744f',door:'#73706a',bedL:'#d8d4ca',bedR:'#c9c4ba'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/resnik-house/resnik_semi-suite-double_floor-plan.pdf' }
+    }},
+    welch:{ name:'Welch House', rooms:{
+      ss_single:{ name:'Semi-Suite Single (verified shell)', room:{w:98.625,d:147.5,h:96}, layout:'standard', beds:1, closets:0, modelStatus:'official-shell', dimensionSpan:'representative bedroom span; shared-bath topology is outside this shell', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#f0ede7',wood:'#8d6a49',door:'#71675c',bedL:'#d8d3ca',bedR:'#c8c1b7'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/welch-house/welch_semi-suite-single_floor-plan.pdf' },
+      ss_double:{ name:'Semi-Suite Double (verified shell)', room:{w:149,d:150,h:96}, layout:'standard', beds:2, closets:0, modelStatus:'official-shell', dimensionSpan:'representative bedroom span; shared-bath topology is outside this shell', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#f0ede7',wood:'#8d6a49',door:'#71675c',bedL:'#d8d3ca',bedR:'#c8c1b7'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/welch-house/welch_semi-suite-double_floor-plan.pdf' }
+    }},
+    westwing:{ name:'West Wing', rooms:{
+      ss_single:{ name:'Semi-Suite Single (verified shell)', room:{w:98,d:148,h:96}, layout:'standard', beds:1, closets:0, modelStatus:'official-shell', dimensionSpan:'representative bedroom span; larger 3-5 resident suite varies', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eee8',wood:'#9a744f',door:'#73706a',bedL:'#d8d4ca',bedR:'#c9c4ba'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/west-wing/west-wing_semi-suite-single_floor-plan.pdf' },
+      ss_double:{ name:'Semi-Suite Double (verified shell)', room:{w:142,d:226,h:96}, layout:'standard', beds:2, closets:0, modelStatus:'official-shell', dimensionSpan:'representative bedroom span; complete suite topology varies by room number', furniture:[], finish:{floor:'carpetgray',covering:'blinds',wall:'#f0eee8',wood:'#9a744f',door:'#73706a',bedL:'#d8d4ca',bedR:'#c9c4ba'}, source:'https://www.cmu.edu/housing/our-communities/residences/floor-plans/west-wing/west-wing_semi-suite-double_floor-plan.pdf' }
     }}
   }}
 };
-var CURRENT_ROOM_KEY='cmu/etower/trad_double';   // the app boots straight into this room
+var DEFAULT_ROOM_KEY='cmu/etower/trad_double';
+var CURRENT_ROOM_KEY=DEFAULT_ROOM_KEY;           // the app boots straight into this room
+function roomConfigForKey(key){
+  var p=(key||'').split('/'), school=SCHOOLS[p[0]], building=school&&school.buildings[p[1]], room=building&&building.rooms[p[2]];
+  return room?{schoolKey:p[0],buildingKey:p[1],roomKey:p[2],school:school,building:building,room:room}:null;
+}
 
 /* ====================  BOOT  ========================================= */
+applyRoomProfile(SCHOOLS.cmu.buildings.etower.rooms.trad_double);
 buildRoom();
 applyLayout('standard');
 applyBedColors();
 applyDecor();
 applyWallStyle();                                             // default: painted white walls
-document.getElementById('floorType').dispatchEvent(new Event('change'));  // default: blue carpet
+document.getElementById('floorType').dispatchEvent(new Event('change'));  // default: verified room finish
 resize(); setView('corner', false);
 // restore the user's saved progress (autosaved to this browser) if present
 var RESTORED=false;
@@ -2470,11 +2689,12 @@ function applyRoomSelection(uKey,bKey,rKey,cfg){
   if(sameRoom) return;                       // keep the user's current / restored arrangement
   ROOM_BEDS=cfg.beds||2; ROOM_CLOSETS=(typeof cfg.closets==='number')?cfg.closets:2; ROOM_SHAPE=cfg.shape||null;
   ROOM_FURN=cfg.furniture||null; ROOM_DOORX=cfg.doorX||0; ROOM_WINDOWS=cfg.windows||null; ROOM_BATH=cfg.bath||null;
+  applyRoomProfile(cfg);
   if(cfg.room){ ROOM.w=cfg.room.w; ROOM.d=cfg.room.d; ROOM.h=cfg.room.h;
     if(document.getElementById('rW'))document.getElementById('rW').value=ROOM.w;
     if(document.getElementById('rD'))document.getElementById('rD').value=ROOM.d;
     if(document.getElementById('rH'))document.getElementById('rH').value=ROOM.h; }
-  buildRoom(); applyLayout(cfg.layout||'standard'); applyBedColors(); applyDecor(); setView('corner',false);
+  buildRoom(); applyLayout(cfg.layout||'standard'); applyBedColors(); applyDecor(); applyWallStyle(); setView('corner',false);
 }
 (function initLanding(){
   var uni=document.getElementById('selUni'), bldg=document.getElementById('selBldg'),
@@ -2506,13 +2726,14 @@ function applyRoomSelection(uKey,bKey,rKey,cfg){
     land.classList.add('gone');
   });
   var br=document.getElementById('btnRooms'); if(br) br.onclick=function(){ land.classList.remove('gone'); };
-  // set the topbar breadcrumb to match the default room even before the user picks
-  var dk=CURRENT_ROOM_KEY.split('/'); var c2=document.getElementById('tbCrumb');
-  if(c2 && SCHOOLS[dk[0]]) c2.innerHTML=SCHOOLS[dk[0]].name+' · '+SCHOOLS[dk[0]].buildings[dk[1]].name;
+  // Validate restored keys before any registry dereference or autosave can preserve them.
+  var currentRoom=roomConfigForKey(CURRENT_ROOM_KEY);
+  if(!currentRoom){ CURRENT_ROOM_KEY=DEFAULT_ROOM_KEY; currentRoom=roomConfigForKey(DEFAULT_ROOM_KEY); }
+  var dk=[currentRoom.schoolKey,currentRoom.buildingKey,currentRoom.roomKey], c2=document.getElementById('tbCrumb');
+  if(c2) c2.innerHTML=currentRoom.school.name+' · '+currentRoom.building.name;
   // returning visitor with restored progress: skip the picker and go straight to the room.
   // "Change room" in the top bar still reopens it.
-  if(RESTORED && SCHOOLS[dk[0]] && SCHOOLS[dk[0]].buildings[dk[1]] &&
-     SCHOOLS[dk[0]].buildings[dk[1]].rooms[dk[2]]){
+  if(RESTORED){
     uni.value=dk[0]; uni.dispatchEvent(new Event('change'));
     bldg.value=dk[1]; bldg.dispatchEvent(new Event('change'));
     room.value=dk[2]; refreshEnter();
