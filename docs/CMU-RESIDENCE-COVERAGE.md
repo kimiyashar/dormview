@@ -1,6 +1,6 @@
 # CMU residence coverage
 
-Status: local review build only. Not deployed.
+Status: production deployment verified at https://dormview.vercel.app on 2026-10-31.
 
 CMU's current housing index separates 14 residence halls from 12 apartment properties. DormView's current local catalog covers 13 residence halls and 32 room types.
 
@@ -46,3 +46,13 @@ Residence on Fifth is officially listed as an apartment, not a residence hall. I
 - Fifth & Clyde: https://www.cmu.edu/housing/our-communities/residences/fifth-clyde/index.html
 
 CMU states that room plans are representative, dimensions are estimates, and actual room sizes, furniture, and configurations may vary.
+
+
+## Production verification
+
+- `accuracytest.js`: passed all catalog, source, finish, and renderer assertions.
+- `roomcheck.js`: passed all 32 rooms with no remaining allowlisted bounds or furniture-overlap exceptions.
+- Browser matrix: all 32 picker entries opened with the expected room title and a nonzero canvas.
+- Layout regression: Standard, Beds raised, Bunked, and Open middle executed; autosave restored the selected Mudge room and layout after reload.
+- Production bytes matched the committed local HTML by SHA-256 after deployment.
+- Vercel reported the production deployment Ready and the public alias returned HTTP 200.
