@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/cmu-etower-double-3d.html" }
+  ]
+}
